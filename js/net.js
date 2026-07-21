@@ -87,6 +87,7 @@ const Net = {
       e.dead = true;
       deathFx(e);
       if (m.killer === this.id || e.boss) killRewards(e);
+      else if (Party.has(m.killer)) Party.shareKill(e);   // party: shared quest credit + half XP
     } else if (m.t === 'ehit') {
       if (m.target === this.id) damagePlayer(m.dmg, m.name || 'a monster');
     } else if (m.t === 'eproj') {
@@ -103,7 +104,7 @@ const Net = {
       }
     } else if (m.t === 'esummon') {
       if (this.isAuth()) return;
-      const bossType = m.stype === 'drowned' ? 'maw' : 'warden';
+      const bossType = m.stype === 'drowned' ? 'maw' : m.stype === 'voidknight' ? 'hollowking' : 'warden';
       const w = G.enemies.find(en => en.type === bossType);
       bossSummonAt(w ? w.x : m.pts[0][0], w ? w.y : m.pts[0][1], m.pts, m.stype);
     } else if (m.t === 'join') {
@@ -111,11 +112,13 @@ const Net = {
       chat('sys', `⚔ ${m.name} has entered Emberfall!`);
     } else if (m.t === 'state') {
       const r = this.remotes[m.id];
-      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; }
+      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; }
     } else if (m.t && m.t.startsWith('trade')) {
       Trade.handle(m);
     } else if (m.t && m.t.startsWith('duel')) {
       Duel.handle(m);
+    } else if (m.t && m.t.startsWith('party')) {
+      Party.handle(m);
     } else if (m.t === 'gift') {
       if (m.to === this.id) {
         addItem(m.item, 1);
@@ -130,6 +133,7 @@ const Net = {
       if (r) { chat('sys', `${r.name} has left the realm.`); delete this.remotes[m.id]; }
       if (Trade.active && Trade.active.peerId === m.id) Trade.close('Trade cancelled — they left the realm.');
       if (Duel.peerId === m.id) Duel.reset('Duel over — your opponent left the realm.');
+      if (Party.has(m.id)) Party.drop(m.id);
     }
   },
 
@@ -147,7 +151,7 @@ const Net = {
     if (this.sendT <= 0) {
       this.sendT = 0.1;   // 10 updates/s
       const p = G.player;
-      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p) });
+      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100) });
     }
     // ranked score heartbeat (drives the realm leaderboard)
     this.scoreT -= dt;
@@ -359,6 +363,80 @@ const Trade = {
     if (msg) chat('sys', msg);
   },
   render() { renderTradePanel(this.active); },
+};
+
+// ============================================================
+// Party — quest together. Shared kill-quest credit, half XP
+// from partymates' kills, live HP frames, green minimap dots.
+// Roster is kept in sync by whoever last changed it.
+// ============================================================
+const Party = {
+  members: new Set(),   // remote ids
+
+  has(id) { return this.members.has(id); },
+  size() { return this.members.size; },
+
+  invite(r) {
+    if (this.members.size >= 3) { chat('sys', 'Your party is full (4 heroes).'); return; }
+    if (this.has(r.id)) { chat('sys', `${r.name} is already in your party.`); return; }
+    Net.send({ t: 'partyinv', to: r.id });
+    chat('sys', `🤝 Party invite sent to ${r.name}...`);
+  },
+  leaveParty() {
+    if (!this.members.size) return;
+    Net.send({ t: 'partyleave' });
+    this.members.clear();
+    chat('sys', '🚪 You left the party.');
+    refreshPartyFrames();
+  },
+  drop(id) {
+    this.members.delete(id);
+    chat('sys', 'A hero left your party.');
+    refreshPartyFrames();
+  },
+
+  handle(m) {
+    if (m.t === 'partyinv') {
+      if (m.to !== Net.id) return;
+      const r = Net.remotes[m.from];
+      const name = r ? r.name : 'An adventurer';
+      showAsk(`🤝 <b style="color:#7fd18a">${name}</b> invites you to a <b>party</b>!`,
+        () => {
+          Net.send({ t: 'partyacc', to: m.from });
+          this.members.add(m.from);
+          chat('sys', `🤝 You joined ${name}'s party!`);
+          refreshPartyFrames();
+        },
+        () => Net.send({ t: 'partydec', to: m.from }));
+    } else if (m.t === 'partyacc') {
+      if (m.to !== Net.id) return;
+      this.members.add(m.from);
+      const r = Net.remotes[m.from];
+      chat('sys', `🤝 ${r ? r.name : 'A hero'} joined your party!`);
+      // sync the full roster to every member so everyone agrees
+      const ids = [Net.id, ...this.members];
+      for (const id of this.members) Net.send({ t: 'partysync', to: id, ids });
+      refreshPartyFrames();
+    } else if (m.t === 'partydec') {
+      if (m.to === Net.id) chat('sys', 'Your party invite was declined.');
+    } else if (m.t === 'partysync') {
+      if (m.to !== Net.id || !Array.isArray(m.ids)) return;
+      if (!m.ids.includes(Net.id)) return;
+      this.members = new Set(m.ids.filter(id => id !== Net.id && Net.remotes[id]));
+      refreshPartyFrames();
+    } else if (m.t === 'partyleave') {
+      if (this.has(m.from)) this.drop(m.from);
+    }
+  },
+
+  // a partymate killed something: quest credit for me too, plus half XP (bosses already reward everyone)
+  shareKill(e) {
+    questEvent('kill', e.type);
+    const p = G.player;
+    let xp = Math.round(e.xp * 0.5);
+    if (p.level - e.lv > 3) xp = Math.max(1, Math.round(xp * 0.25));
+    gainXp(xp);
+  },
 };
 
 // ============================================================

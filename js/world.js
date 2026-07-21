@@ -31,16 +31,24 @@ const World = {
 
   regionAt(px, py) {
     const tx = px / TILE, ty = py / TILE;
-    if (tx >= 9 && tx <= 39 && ty >= 105) return 'crypt';
+    if (tx >= 9 && tx <= 39 && ty >= 105 && ty <= 133) return 'crypt';
+    if (ty >= 134) {
+      if (tx <= 94) return 'frost';
+      if (tx <= 150) return 'mire';
+      return 'spire';
+    }
+    if (tx >= 135) return 'steppe';
     if (dist(tx, ty, 70, 111) < 17) return 'village';
-    if (tx > 99 && ty > 36 && ty < 94) return 'cave';
-    if (ty < 36) return 'ruins';
+    if (tx > 99 && tx < 135 && ty > 36 && ty < 94) return 'cave';
+    if (ty < 36 && tx < 135) return 'ruins';
     if (ty < 89) return 'forest';
     return 'meadow';
   },
   regionName(r) {
     return { village: 'Havenbrook Village', cave: 'The Ember Caves', ruins: 'The Ashen Ruins',
-             forest: 'The Whisperwood', meadow: 'Southmeadow', crypt: 'The Sunken Crypt' }[r];
+             forest: 'The Whisperwood', meadow: 'Southmeadow', crypt: 'The Sunken Crypt',
+             steppe: 'The Scorched Steppe', frost: 'Frostpeak Highlands',
+             mire: 'The Duskmire', spire: 'The Shattered Spire' }[r];
   },
 
   gen() {
@@ -118,6 +126,85 @@ const World = {
       const x = Math.round(70 + Math.cos(ang) * 10), y = Math.round(15 + Math.sin(ang) * 8);
       this.set(x, y, 5);
     }
+    // ================= ACT 3 EXPANSION ZONES =================
+    // Scorched Steppe (east strip, lv 12-20): burnt earth, ember vents
+    for (let y = 8; y < 131; y++) for (let x = 136; x < 197; x++) {
+      const t = this.t(x, y);
+      if (t === 2 || t === 3) continue;
+      this.set(x, y, 10);
+      if (hash2(x * 3, y * 5) < 0.05) this.set(x, y, 5);
+    }
+    // Frostpeak Highlands (southwest, lv 20-32): snowfields, ice rocks, pines
+    for (let y = 136; y < 197; y++) for (let x = 8; x < 95; x++) {
+      const t = this.t(x, y);
+      if (t === 2 || t === 3) continue;
+      this.set(x, y, 11);
+      const h = hash2(x * 7, y * 3);
+      if (h < 0.045) this.set(x, y, 5);
+      else if (h > 0.985) this.set(x, y, 6);
+    }
+    // The Duskmire (south-central, lv 30-42): moss, black pools, dead trees
+    for (let y = 136; y < 197; y++) for (let x = 95; x < 151; x++) {
+      const t = this.t(x, y);
+      if (t === 2 || t === 3) continue;
+      this.set(x, y, 12);
+      const h = hash2(x * 5, y * 7);
+      if (h < 0.05) this.set(x, y, 2);
+      else if (h > 0.975) this.set(x, y, 6);
+    }
+    // The Shattered Spire (southeast corner, lv 40-50): voidstone, shard walls
+    for (let y = 136; y < 197; y++) for (let x = 151; x < 197; x++) {
+      const t = this.t(x, y);
+      if (t === 2 || t === 3) continue;
+      this.set(x, y, 13);
+      if (hash2(x * 9, y * 11) < 0.055) this.set(x, y, 5);
+    }
+    // spire arena: ring of shards, west opening
+    for (let a = 0; a < 48; a++) {
+      const ang = a / 48 * Math.PI * 2;
+      if (ang > 2.6 && ang < 3.7) continue;
+      const x = Math.round(176 + Math.cos(ang) * 11), y = Math.round(170 + Math.sin(ang) * 9);
+      if (this.t(x, y) === 13) this.set(x, y, 5);
+    }
+    this.blob(176, 170, 8, 13, R, true);
+    // zone transitions: dithered blend rows
+    for (let x = 8; x < 197; x++) for (let y = 131; y < 137; y++) {
+      const t = this.t(x, y);
+      if (t !== 0 && t !== 10 && t !== 11 && t !== 12 && t !== 13) continue;
+      const south = this.t(x, 138);
+      if (hash2(x * 13, y * 17) > (y - 130) / 7) this.set(x, y, x >= 135 ? 10 : 0);
+      else this.set(x, y, south === 11 || south === 12 || south === 13 ? south : 0);
+    }
+    for (let y = 8; y < 131; y++) for (let x = 131; x < 137; x++) {
+      const t = this.t(x, y);
+      if (t !== 0 && t !== 10 && t !== 4 && t !== 9) continue;
+      if (t === 4 || t === 9) continue;
+      if (hash2(x * 11, y * 13) > (x - 130) / 7) { if (t === 10) this.set(x, y, 0); }
+    }
+    // roads: east into the steppe (Sarra), south to Frostpeak/Duskmire/Spire
+    for (let x = 100; x <= 142; x++) {
+      const y = 101 + Math.round(Math.sin(x * 0.15) * 1.4);
+      for (let dy = -1; dy <= 0; dy++) if (this.t(x, y + dy) !== 2) this.set(x, y + dy, 1);
+    }
+    for (let y = 118; y <= 158; y++) {
+      const x = 70 + Math.round(Math.sin(y * 0.13) * 1.5);
+      for (let dx = -1; dx <= 0; dx++) if (this.t(x + dx, y) !== 2) this.set(x + dx, y, 1);
+    }
+    for (let x = 20; x <= 70; x++) {   // west branch to Oskar
+      const y = 152 + Math.round(Math.sin(x * 0.17) * 1.3);
+      if (this.t(x, y) !== 2) this.set(x, y, 1);
+    }
+    for (let x = 70; x <= 170; x++) {  // east branch through the mire to the Spire
+      const y = 158 + Math.round(Math.sin(x * 0.11) * 1.6);
+      for (let dy = -1; dy <= 0; dy++) if (this.t(x, y + dy) !== 2) this.set(x, y + dy, 1);
+    }
+    // spire approach: spur from the south road up to the arena mouth
+    for (let y = 159; y <= 170; y++) if (this.t(170, y) !== 2) this.set(170, y, 1);
+    // NPC clearings (outposts)
+    this.blob(139, 103, 3, 1, R, true);   // Sarra's outpost
+    this.blob(16, 139, 3, 11, R, true); this.set(16, 139, 1); this.set(16, 140, 1);   // Oskar's camp
+    this.blob(100, 141, 3, 12, R, true); this.set(100, 141, 1);                        // Morwen's hut yard
+
     // ---- the Sunken Crypt (Act 2 dungeon, southwest underdeep) ----
     for (let y = 106; y < 133; y++) for (let x = 10; x < 39; x++) {
       const t = this.t(x, y);
@@ -191,6 +278,9 @@ const World = {
     const nodeSpots = [
       ...[[64, 55], [77, 48], [58, 70], [82, 74], [67, 42], [88, 58], [54, 46], [75, 82], [61, 80], [85, 44]].map(s => [s[0], s[1], 'moonpetal']),
       ...[[55, 95], [62, 101], [80, 96], [88, 102], [50, 100], [74, 100], [90, 95], [45, 96]].map(s => [s[0], s[1], 'sunberry']),
+      ...[[150, 30], [165, 55], [180, 25], [190, 80], [155, 90], [172, 110], [145, 70]].map(s => [s[0], s[1], 'cinder_bloom']),
+      ...[[25, 150], [45, 170], [70, 185], [30, 188], [60, 145], [80, 165]].map(s => [s[0], s[1], 'frost_lily']),
+      ...[[105, 155], [120, 175], [135, 145], [110, 188], [140, 180], [125, 160]].map(s => [s[0], s[1], 'gloomcap']),
     ];
     for (const [px, py, item] of nodeSpots) {
       let x = px, y = py;
@@ -234,6 +324,10 @@ const World = {
       case 7: return '#4a3c2e';
       case 8: return shade('#3f6135', v);
       case 9: return shade('#6e6659', v);
+      case 10: return shade('#5e4638', v);   // scorched earth
+      case 11: return shade('#c8d4e0', v);   // snow
+      case 12: return shade('#43503a', v);   // mire moss
+      case 13: return shade('#2e2838', v);   // voidstone
       default: return '#000';
     }
   },
@@ -322,6 +416,37 @@ const World = {
           ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(px, py + 15, TILE, 2);
         } else if (t === 3) {
           if (h < 0.1) { ctx.fillStyle = 'rgba(120,100,60,.4)'; ctx.beginPath(); ctx.arc(px + 16, py + 16, 2, 0, 7); ctx.fill(); }
+        } else if (t === 10) {
+          if (h < 0.08) { ctx.fillStyle = 'rgba(20,12,8,.4)'; ctx.beginPath(); ctx.arc(px + 16, py + 16, 5, 0, 7); ctx.fill(); }
+          if (h > 0.93) {   // ember vents
+            const fl = Math.sin(time * 4 + tx * 7) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(255,110,40,${0.3 + fl * 0.4})`;
+            ctx.fillRect(px + 12, py + 14, 5, 4);
+            ctx.fillStyle = `rgba(255,190,90,${fl * 0.5})`;
+            ctx.fillRect(px + 13, py + 15, 3, 2);
+          }
+        } else if (t === 11) {
+          if (h > 0.9) {   // snow sparkle
+            const tw = Math.sin(time * 3 + tx * 13 + ty * 7) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(255,255,255,${0.3 + tw * 0.5})`;
+            ctx.fillRect(px + 6 + h * 50 % 20, py + 6 + h * 30 % 20, 2, 2);
+          }
+          if (h < 0.06) { ctx.fillStyle = 'rgba(140,170,200,.3)'; ctx.beginPath(); ctx.arc(px + 16, py + 18, 5, 0, 7); ctx.fill(); }
+        } else if (t === 12) {
+          if (h < 0.12) { ctx.fillStyle = 'rgba(10,16,8,.45)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 18, 8, 4, 0, 0, 7); ctx.fill(); }
+          if (h > 0.9) {   // marsh gas shimmer
+            const gl2 = Math.sin(time * 2 + tx * 5) * 0.5 + 0.5;
+            ctx.fillStyle = `rgba(180,230,140,${gl2 * 0.15})`;
+            ctx.beginPath(); ctx.arc(px + 16, py + 12, 5, 0, 7); ctx.fill();
+          }
+        } else if (t === 13) {
+          if (h > 0.9) {   // void cracks
+            const gl3 = Math.sin(time * 2.5 + tx * 9) * 0.5 + 0.5;
+            ctx.strokeStyle = `rgba(150,90,255,${0.2 + gl3 * 0.35})`;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(px + 6, py + 22); ctx.lineTo(px + 14, py + 12); ctx.lineTo(px + 24, py + 18); ctx.stroke();
+          }
+          if (h < 0.07) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(px + 8, py + 8, 14, 3); }
         } else if (t === 6) {
           // trunk (canopy drawn later, above entities)
           ctx.fillStyle = 'rgba(0,0,0,.28)';
@@ -389,7 +514,7 @@ const World = {
     const c = document.createElement('canvas');
     c.width = MAP_W; c.height = MAP_H;
     const x = c.getContext('2d');
-    const cols = { 0: '#5a8442', 1: '#9a7d4f', 2: '#2a5a8a', 3: '#c9b57a', 4: '#5a5a66', 5: '#33333d', 6: '#2f5a2e', 7: '#4a3c2e', 8: '#3f6135', 9: '#6e6659' };
+    const cols = { 0: '#5a8442', 1: '#9a7d4f', 2: '#2a5a8a', 3: '#c9b57a', 4: '#5a5a66', 5: '#33333d', 6: '#2f5a2e', 7: '#4a3c2e', 8: '#3f6135', 9: '#6e6659', 10: '#5e4638', 11: '#c8d4e0', 12: '#43503a', 13: '#2e2838' };
     for (let ty = 0; ty < MAP_H; ty++) for (let tx = 0; tx < MAP_W; tx++) {
       x.fillStyle = cols[this.t(tx, ty)] || '#000';
       x.fillRect(tx, ty, 1, 1);

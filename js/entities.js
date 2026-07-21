@@ -157,8 +157,20 @@ function spawnAllEnemies() {
   put('slime', 9, 112, 130, 56, 90, [124, 50, 9]);
   put('cultist', 11, 36, 104, 8, 32, [70, 15, 11]);
   put('drowned', 8, 12, 37, 108, 126, [24, 127, 7]);
+  // Act 3 zones
+  put('ashhound', 14, 138, 195, 10, 128, [139, 103, 6]);
+  put('emberwisp', 10, 145, 195, 15, 125, [139, 103, 6]);
+  put('cindergolem', 8, 150, 194, 20, 120, [139, 103, 8]);
+  put('frostwolf', 14, 10, 92, 140, 194, [16, 139, 6]);
+  put('iceshade', 10, 15, 90, 145, 194, [16, 139, 8]);
+  put('frostgiant', 5, 25, 88, 155, 192, [16, 139, 10]);
+  put('bogfiend', 12, 97, 148, 140, 194, [100, 141, 6]);
+  put('duskwisp', 10, 100, 148, 145, 194, [100, 141, 7]);
+  put('mirehulk', 8, 100, 148, 150, 192, [100, 141, 9]);
+  put('voidknight', 12, 153, 194, 140, 194, [176, 170, 10]);
   G.enemies.push(spawnEnemy('gloomfang', 124, 50));
   G.enemies.push(spawnEnemy('maw', 24, 127));
+  G.enemies.push(spawnEnemy('hollowking', 176, 170));
   if (!G.bossDead) G.enemies.push(spawnEnemy('warden', 70, 14));
 }
 
@@ -194,10 +206,10 @@ function updateEnemy(e, dt) {
   const dp = v ? v.d : 1e9;
 
   // boss phases: summon adds at 66% / 33%
-  if ((e.type === 'warden' || e.type === 'maw') && v) {
-    const addType = e.type === 'warden' ? 'cultist' : 'drowned';
-    if (e.hp < e.maxHp * 0.66 && e.phase < 1) { e.phase = 1; bossSummon(e, addType); }
-    if (e.hp < e.maxHp * 0.33 && e.phase < 2) { e.phase = 2; bossSummon(e, addType); }
+  const BOSS_ADDS = { warden: 'cultist', maw: 'drowned', hollowking: 'voidknight' };
+  if (BOSS_ADDS[e.type] && v) {
+    if (e.hp < e.maxHp * 0.66 && e.phase < 1) { e.phase = 1; bossSummon(e, BOSS_ADDS[e.type]); }
+    if (e.hp < e.maxHp * 0.33 && e.phase < 2) { e.phase = 2; bossSummon(e, BOSS_ADDS[e.type]); }
   }
 
   if (e.state === 'idle') {
@@ -230,7 +242,8 @@ function updateEnemy(e, dt) {
         if (e.ranged) {
           const a2 = Math.atan2(v2.y - e.y, v2.x - e.x);
           const n = e.type === 'warden' ? (e.phase >= 2 ? 8 : e.phase >= 1 ? 5 : 3)
-                  : e.type === 'maw' ? (e.phase >= 1 ? 6 : 4) : 1;
+                  : e.type === 'maw' ? (e.phase >= 1 ? 6 : 4)
+                  : e.type === 'hollowking' ? (e.phase >= 2 ? 9 : e.phase >= 1 ? 7 : 5) : 1;
           const ttl = e.type === 'warden' ? 1.9 : 1.2;   // ~500px / ~310px reach
           for (let i = 0; i < n; i++) {
             const sp = a2 + (n > 1 ? (i - (n - 1) / 2) * 0.28 : 0);
@@ -278,8 +291,10 @@ function bossSummonAt(cx, cy, pts, type) {
     s.state = 'chase'; s.summoned = true;
     G.enemies.push(s);
   }
-  chat('sys', type === 'drowned' ? '🌊 The Maw calls the Drowned from the deep!' : '☠ The Warden calls its servants!');
-  spawnParticles(cx, cy, 30, type === 'drowned' ? '#5ac8d8' : '#9a5aff', 160, 0.8);
+  chat('sys', type === 'drowned' ? '🌊 The Maw calls the Drowned from the deep!'
+    : type === 'voidknight' ? '🕳️ The Hollow King raises his vanguard!'
+    : '☠ The Warden calls its servants!');
+  spawnParticles(cx, cy, 30, type === 'drowned' ? '#5ac8d8' : type === 'voidknight' ? '#b06aff' : '#9a5aff', 160, 0.8);
   G.shake = 0.5;
 }
 function bossSummon(e, type) {
@@ -410,7 +425,7 @@ function drawHumanoid(ctx, x, y, opts) {
   ctx.fillRect(eyeOff - 2.5, -18, 2, 2.5); ctx.fillRect(eyeOff + 1, -18, 2, 2.5);
   // weapon — appearance scales with the equipped item's tier
   if (weapon) {
-    const wt = clamp((opts.wtier === undefined ? 0 : opts.wtier) + 1, 0, 4); // 0=unarmed/wood .. 4=legendary
+    const wt = clamp((opts.wtier === undefined ? 0 : opts.wtier) + 1, 0, 6); // 0=unarmed .. 4=dawn, 5=frost, 6=hollow
     const swing = attackAnim > 0 ? Math.sin(attackAnim * Math.PI) * 1.6 : 0;
     const a = (aim !== undefined ? aim : (facing < 0 ? Math.PI : 0));
     const gl = Math.sin(G.time * 5) * 0.5 + 0.5;
@@ -423,6 +438,8 @@ function drawHumanoid(ctx, x, y, opts) {
         { c: '#cfd4dd', e: '#e8ecf2', len: 17 },                                  // soldier steel
         { c: '#ff9a4a', e: '#ffd9a8', len: 19, glow: 'rgba(255,140,60,' },        // emberforged
         { c: '#ffe14a', e: '#fff6c8', len: 22, glow: 'rgba(255,225,100,' },       // wardenbane
+        { c: '#a8dcf4', e: '#eaf8ff', len: 23, glow: 'rgba(140,210,255,' },       // frostbrand
+        { c: '#8a5aff', e: '#c9a8ff', len: 25, glow: 'rgba(120,70,255,' },        // kingsgrief
       ][wt];
       if (T.glow) {
         ctx.fillStyle = T.glow + (0.20 + gl * 0.18) + ')';
@@ -440,6 +457,8 @@ function drawHumanoid(ctx, x, y, opts) {
         { orb: '150,175,255', r: 4.2 },
         { orb: '255,150,70',  r: 5.0 },
         { orb: '255,225,100', r: 5.8 },
+        { orb: '150,215,255', r: 6.4 },
+        { orb: '150,90,255',  r: 7.0 },
       ][wt];
       ctx.strokeStyle = wt >= 3 ? '#7a4a2a' : '#6a4a2a'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(26, 0); ctx.stroke();
@@ -459,6 +478,8 @@ function drawHumanoid(ctx, x, y, opts) {
         { c: '#5a4a3f', str: '#eee', r: 9.5, tips: '#cfd4dd' },
         { c: '#a85a2a', str: '#ffd9a8', r: 10, tips: '#ff9a4a', glow: 'rgba(255,140,60,' },
         { c: '#c9a227', str: '#fff6c8', r: 11, tips: '#ffe14a', glow: 'rgba(255,225,100,' },
+        { c: '#7ab8d8', str: '#eaf8ff', r: 11.5, tips: '#a8dcf4', glow: 'rgba(140,210,255,' },
+        { c: '#4a2a8a', str: '#c9a8ff', r: 12, tips: '#8a5aff', glow: 'rgba(120,70,255,' },
       ][wt];
       if (T.glow) {
         ctx.fillStyle = T.glow + (0.15 + gl * 0.12) + ')';
@@ -509,7 +530,7 @@ function drawEnemy(ctx, e, cam) {
     ctx.translate(x, y - Math.abs(bob));
     ctx.scale(e.facing * s, s);
     const dark = e.type === 'gloomfang';
-    ctx.fillStyle = dark ? '#2a2a38' : '#6a6a72';
+    ctx.fillStyle = e.fur || (dark ? '#2a2a38' : '#6a6a72');
     // body
     ctx.beginPath(); ctx.ellipse(0, 0, 15, 8, 0, 0, 7); ctx.fill();
     // head
@@ -523,7 +544,7 @@ function drawEnemy(ctx, e, cam) {
     // tail
     ctx.beginPath(); ctx.moveTo(-14, -2); ctx.quadraticCurveTo(-22, -8 + bob, -19, -12 + bob); ctx.quadraticCurveTo(-16, -6, -13, -4); ctx.fill();
     // eye
-    ctx.fillStyle = dark ? '#a55aff' : '#c93a3a';
+    ctx.fillStyle = e.eye || (dark ? '#a55aff' : '#c93a3a');
     ctx.beginPath(); ctx.arc(14, -5, 1.8, 0, 7); ctx.fill();
     if (dark) { // gloomfang aura
       ctx.fillStyle = 'rgba(150,80,255,.14)';
@@ -559,17 +580,18 @@ function drawEnemy(ctx, e, cam) {
     drawShadow(ctx, x, y + 14, 8);
     ctx.translate(x, y + fl - 8);
     const gl = Math.sin(G.time * 6 + e.y) * 0.5 + 0.5;
-    ctx.fillStyle = `rgba(120,220,140,${0.25 + gl * 0.2})`;
-    ctx.beginPath(); ctx.arc(0, 0, 14 + gl * 3, 0, 7); ctx.fill();
-    ctx.fillStyle = '#8ae89a';
-    ctx.beginPath(); ctx.arc(0, 0, 7, 0, 7); ctx.fill();
-    ctx.fillStyle = '#eaffea';
-    ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, 7); ctx.fill();
+    const tint = e.tint || '120,220,140';
+    ctx.fillStyle = `rgba(${tint},${0.25 + gl * 0.2})`;
+    ctx.beginPath(); ctx.arc(0, 0, (14 + gl * 3) * s, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(${tint},.95)`;
+    ctx.beginPath(); ctx.arc(0, 0, 7 * s, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f5fff0';
+    ctx.beginPath(); ctx.arc(0, 0, 3.5 * s, 0, 7); ctx.fill();
     // wisps
     for (let i = 0; i < 3; i++) {
       const wa = G.time * 3 + i * 2.1;
-      ctx.fillStyle = `rgba(140,240,160,${0.5 - i * 0.12})`;
-      ctx.beginPath(); ctx.arc(Math.cos(wa) * 11, Math.sin(wa) * 6, 2.2, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(${tint},${0.5 - i * 0.12})`;
+      ctx.beginPath(); ctx.arc(Math.cos(wa) * 11 * s, Math.sin(wa) * 6 * s, 2.2, 0, 7); ctx.fill();
     }
     ctx.fillStyle = '#1a3a1a';
     ctx.fillRect(-3, -2, 2, 3); ctx.fillRect(1.5, -2, 2, 3);
@@ -597,8 +619,8 @@ function drawEnemy(ctx, e, cam) {
     ctx.translate(x, y);
     ctx.scale(1 + sq, 1 - sq);
     const grad = ctx.createRadialGradient(0, -4, 2, 0, 0, 16);
-    grad.addColorStop(0, 'rgba(255,150,60,.95)');
-    grad.addColorStop(1, 'rgba(200,70,20,.75)');
+    grad.addColorStop(0, `rgba(${e.tint1 || '255,150,60'},.95)`);
+    grad.addColorStop(1, `rgba(${e.tint2 || '200,70,20'},.75)`);
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.moveTo(-14, 8);
     ctx.quadraticCurveTo(-16, -10, 0, -12);
@@ -615,36 +637,40 @@ function drawEnemy(ctx, e, cam) {
     ctx.translate(x, y - Math.abs(bob) * 0.5);
     ctx.scale(e.facing, 1);
     // robe
-    ctx.fillStyle = '#3a2a4a';
+    ctx.fillStyle = e.robe || '#3a2a4a';
     ctx.beginPath(); ctx.moveTo(-9, 14); ctx.quadraticCurveTo(-10, -12, 0, -14); ctx.quadraticCurveTo(10, -12, 9, 14); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#2a1a3a';
+    ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath(); ctx.moveTo(-9, 14); ctx.quadraticCurveTo(-4, 8, 0, 14); ctx.closePath(); ctx.fill();
     // hood
-    ctx.fillStyle = '#4a3a5f';
+    ctx.fillStyle = e.robe ? shade(e.robe, 0.08) : '#4a3a5f';
     ctx.beginPath(); ctx.arc(0, -16, 8, Math.PI * 0.8, Math.PI * 2.2); ctx.fill();
     ctx.fillStyle = '#0a0a12';
     ctx.beginPath(); ctx.arc(1, -15, 5, 0, 7); ctx.fill();
-    // glowing eyes
+    // glowing eyes + rune sash (palette-driven for variants)
     const gl = Math.sin(G.time * 3) * 0.3 + 0.7;
-    ctx.fillStyle = `rgba(160,90,255,${gl})`;
+    const rune = e.rune || '#9a5aff';
+    ctx.globalAlpha = gl;
+    ctx.fillStyle = rune;
     ctx.fillRect(-1, -17, 2, 2); ctx.fillRect(3, -17, 2, 2);
-    // rune sash
-    ctx.fillStyle = '#9a5aff'; ctx.fillRect(-9, -2, 18, 2);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = rune; ctx.fillRect(-9, -2, 18, 2);
     if (e.windup > 0) {
-      ctx.fillStyle = `rgba(160,90,255,${0.6})`;
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = rune;
       ctx.beginPath(); ctx.arc(10, -8, 4 + Math.sin(G.time * 20) * 2, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
     }
   } else if (e.kind === 'drowned') {
     drawShadow(ctx, x, y + 14, 10);
     ctx.translate(x, y - Math.abs(bob) * 0.4);
     ctx.scale(e.facing, 1);
     // waterlogged body, arms out
-    ctx.fillStyle = '#4a7a72';
+    ctx.fillStyle = e.tint || '#4a7a72';
     ctx.beginPath(); ctx.roundRect(-8, -12, 16, 22, 5); ctx.fill();
     ctx.fillStyle = '#3a5f5a';
     ctx.fillRect(-8, -2, 16, 4);
     // reaching arms
-    ctx.strokeStyle = '#4a7a72'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.strokeStyle = e.tint || '#4a7a72'; ctx.lineWidth = 4; ctx.lineCap = 'round';
     const reach = Math.sin(e.walkT) * 2;
     ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(15, -6 + reach); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(6, -2); ctx.lineTo(14, 1 - reach); ctx.stroke();
@@ -714,6 +740,87 @@ function drawEnemy(ctx, e, cam) {
     ctx.beginPath(); ctx.moveTo(-6, 8); ctx.quadraticCurveTo(-2, 20, 8, 16); ctx.quadraticCurveTo(0, 10, -6, 8); ctx.fill();
     // bubbles
     if (Math.random() < 0.12) spawnParticles(e.x + (Math.random() - 0.5) * 40, e.y - 20, 1, '#a8e8f8', 18, 1.2, -40);
+  } else if (e.kind === 'golem') {
+    drawShadow(ctx, x, y + 16 * s, 16 * s);
+    ctx.translate(x, y - Math.abs(bob) * 0.4);
+    ctx.scale(e.facing * s, s);
+    const rock = e.rock || '#4a3a34';
+    const glowC = e.glow || '255,120,40';
+    const gl = Math.sin(G.time * 2.5 + e.x) * 0.5 + 0.5;
+    // legs
+    ctx.fillStyle = shade(rock, -0.06);
+    ctx.fillRect(-11, 6, 8, 12); ctx.fillRect(3, 6, 8, 12);
+    // massive torso
+    ctx.fillStyle = rock;
+    ctx.beginPath(); ctx.roundRect(-14, -16, 28, 24, 7); ctx.fill();
+    // shoulders
+    ctx.beginPath(); ctx.arc(-14, -10, 7, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(14, -10, 7, 0, 7); ctx.fill();
+    // arms
+    ctx.fillStyle = shade(rock, -0.04);
+    ctx.fillRect(-20, -8, 7, 16 + Math.sin(e.walkT) * 2);
+    ctx.fillRect(13, -8, 7, 16 - Math.sin(e.walkT) * 2);
+    // molten core + cracks
+    ctx.fillStyle = `rgba(${glowC},${0.5 + gl * 0.5})`;
+    ctx.beginPath(); ctx.arc(0, -6, 4.5 + gl * 1.5, 0, 7); ctx.fill();
+    ctx.strokeStyle = `rgba(${glowC},${0.35 + gl * 0.4})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-2, -10); ctx.lineTo(-7, -14); ctx.moveTo(3, -4); ctx.lineTo(9, 1); ctx.moveTo(-3, -2); ctx.lineTo(-9, 3); ctx.stroke();
+    // head
+    ctx.fillStyle = shade(rock, 0.06);
+    ctx.beginPath(); ctx.roundRect(-6, -25, 12, 10, 3); ctx.fill();
+    ctx.fillStyle = `rgba(${glowC},${0.7 + gl * 0.3})`;
+    ctx.fillRect(-3.5, -22, 2.5, 2.5); ctx.fillRect(1.5, -22, 2.5, 2.5);
+  } else if (e.kind === 'hollow') {
+    drawShadow(ctx, x, y + 30, 30);
+    ctx.translate(x, y + Math.sin(e.walkT * 0.5) * 3 - 6);   // floats
+    ctx.scale(e.facing, 1);
+    const gl = Math.sin(G.time * 2) * 0.5 + 0.5;
+    // void aura
+    ctx.fillStyle = `rgba(110,60,220,${0.10 + gl * 0.08})`;
+    ctx.beginPath(); ctx.arc(0, -14, 56, 0, 7); ctx.fill();
+    // tattered robe trailing into nothing
+    const robeGrad = ctx.createLinearGradient(0, -44, 0, 26);
+    robeGrad.addColorStop(0, '#241a34');
+    robeGrad.addColorStop(1, 'rgba(20,12,30,0)');
+    ctx.fillStyle = robeGrad;
+    ctx.beginPath(); ctx.moveTo(-18, 24);
+    ctx.quadraticCurveTo(-22, -20, -10, -40);
+    ctx.lineTo(10, -40);
+    ctx.quadraticCurveTo(22, -20, 18, 24);
+    ctx.quadraticCurveTo(10, 14, 4, 26);
+    ctx.quadraticCurveTo(-2, 12, -8, 25);
+    ctx.quadraticCurveTo(-14, 14, -18, 24); ctx.fill();
+    // pauldrons
+    ctx.fillStyle = '#3a2a54';
+    ctx.beginPath(); ctx.arc(-13, -34, 8, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(13, -34, 8, 0, 7); ctx.fill();
+    // hollow face: darkness under the crown
+    ctx.fillStyle = '#07040e';
+    ctx.beginPath(); ctx.arc(0, -44, 9, 0, 7); ctx.fill();
+    // eyes of nothing
+    ctx.fillStyle = `rgba(190,120,255,${0.75 + gl * 0.25})`;
+    ctx.beginPath(); ctx.arc(-3.5, -45, 2, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(3.5, -45, 2, 0, 7); ctx.fill();
+    // the Hollow Crown
+    ctx.fillStyle = '#c9a227';
+    ctx.beginPath();
+    ctx.moveTo(-9, -50); ctx.lineTo(-9, -56) ; ctx.lineTo(-5, -51); ctx.lineTo(0, -58);
+    ctx.lineTo(5, -51); ctx.lineTo(9, -56); ctx.lineTo(9, -50); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(190,120,255,${0.6 + gl * 0.4})`;
+    ctx.beginPath(); ctx.arc(0, -53, 1.8, 0, 7); ctx.fill();
+    // greatsword of void, held out
+    ctx.save();
+    ctx.rotate(0.5 + (e.windup > 0 ? Math.sin(G.time * 18) * 0.12 : 0));
+    ctx.fillStyle = '#241a34';
+    ctx.fillRect(16, -4, 6, 8);
+    ctx.fillStyle = `rgba(150,90,255,${0.5 + gl * 0.3})`;
+    ctx.beginPath(); ctx.moveTo(22, -5); ctx.lineTo(52, -1); ctx.lineTo(22, 3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#0c0618';
+    ctx.fillRect(22, -1.4, 27, 2.8);
+    ctx.restore();
+    // motes falling upward
+    if (Math.random() < 0.15) spawnParticles(e.x + (Math.random() - 0.5) * 50, e.y + 10, 1, '#b06aff', 16, 1.4, -50);
   } else if (e.kind === 'warden') {
     drawShadow(ctx, x, y + 30, 30);
     ctx.translate(x, y - Math.abs(Math.sin(e.walkT * 0.5)) * 3);
@@ -980,8 +1087,29 @@ function drawGatherNodes(ctx, cam) {
       ctx.beginPath(); ctx.arc(x - 2, y - 4, 2.5, 0, 7); ctx.fill();
       continue;
     }
+    if (n.item === 'gloomcap') {
+      // squat glowing mushroom
+      ctx.fillStyle = 'rgba(0,0,0,.25)';
+      ctx.beginPath(); ctx.ellipse(x, y + 7, 9, 3.5, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#d8d4c0';
+      ctx.fillRect(x - 2.5, y - 2, 5, 9);
+      const gl2 = Math.sin(G.time * 2.5 + n.x) * 0.5 + 0.5;
+      ctx.fillStyle = `rgba(140,220,160,${0.15 + gl2 * 0.15})`;
+      ctx.beginPath(); ctx.arc(x, y - 5, 12, 0, 7); ctx.fill();
+      ctx.fillStyle = '#4a5f8a';
+      ctx.beginPath(); ctx.ellipse(x, y - 4, 9, 6, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = `rgba(160,240,180,${0.5 + gl2 * 0.5})`;
+      ctx.beginPath(); ctx.arc(x - 3, y - 6, 1.4, 0, 7); ctx.arc(x + 3, y - 7, 1.2, 0, 7); ctx.fill();
+      continue;
+    }
+    // glowing flowers: moonpetal / cinderbloom / frost lily
+    const FS = {
+      moonpetal: { glow: '200,160,255', petal: '#d8b8ff', heart: '#fff2b0' },
+      cinder_bloom: { glow: '255,140,60', petal: '#ff7a4a', heart: '#ffe8a0' },
+      frost_lily: { glow: '180,230,255', petal: '#eef6ff', heart: '#a8d8ff' },
+    }[n.item] || { glow: '200,160,255', petal: '#d8b8ff', heart: '#fff2b0' };
     const gl = Math.sin(G.time * 3 + n.x) * 0.5 + 0.5;
-    ctx.fillStyle = `rgba(200,160,255,${0.18 + gl * 0.18})`;
+    ctx.fillStyle = `rgba(${FS.glow},${0.18 + gl * 0.18})`;
     ctx.beginPath(); ctx.arc(x, y - 4, 12 + gl * 3, 0, 7); ctx.fill();
     // stem
     ctx.strokeStyle = '#3a6a3a'; ctx.lineWidth = 2;
@@ -989,10 +1117,10 @@ function drawGatherNodes(ctx, cam) {
     // petals
     for (let i = 0; i < 5; i++) {
       const a = i / 5 * Math.PI * 2 + G.time * 0.4;
-      ctx.fillStyle = '#d8b8ff';
+      ctx.fillStyle = FS.petal;
       ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * 5, y - 4 + Math.sin(a) * 5, 3.5, 2, a, 0, 7); ctx.fill();
     }
-    ctx.fillStyle = '#fff2b0';
+    ctx.fillStyle = FS.heart;
     ctx.beginPath(); ctx.arc(x, y - 4, 2.5, 0, 7); ctx.fill();
   }
 }

@@ -148,6 +148,33 @@ function updateHotbar() {
   }
 }
 
+// ---------------- Party frames ----------------
+function refreshPartyFrames() {
+  const wrap = $('partyFrames');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  for (const id of Party.members) {
+    const r = Net.remotes[id];
+    if (!r) continue;
+    const row = document.createElement('div');
+    row.className = 'pfRow';
+    row.id = 'pf' + id;
+    row.innerHTML =
+      `<div class="pfName"><span>${CLASSES[r.cls] ? CLASSES[r.cls].icon : ''} ${String(r.name).replace(/</g, '&lt;')}</span><span class="pfLv">Lv ${r.level}</span></div>` +
+      `<div class="pfBar"><div class="fill"></div></div>`;
+    wrap.appendChild(row);
+  }
+}
+function updatePartyFrames() {
+  for (const id of Party.members) {
+    const r = Net.remotes[id];
+    const row = $('pf' + id);
+    if (!r || !row) continue;
+    row.querySelector('.pfLv').textContent = 'Lv ' + r.level;
+    row.querySelector('.fill').style.transform = `scaleX(${clamp((r.hpf === undefined ? 100 : r.hpf) / 100, 0, 1)})`;
+  }
+}
+
 // ---------------- Zone banner ----------------
 function checkZone() {
   const r = World.regionAt(G.player.x, G.player.y);
@@ -225,11 +252,16 @@ function refreshTracker() {
 function togglePanel(id) {
   const el = $(id);
   const wasHidden = el.classList.contains('hidden');
-  ['inventory', 'charsheet', 'questlog', 'board'].forEach(p => $(p).classList.add('hidden'));
-  if (wasHidden) { el.classList.remove('hidden'); refreshPanels(); if (id === 'board') renderBoard(); }
+  ['inventory', 'charsheet', 'questlog', 'board', 'worldMap'].forEach(p => $(p).classList.add('hidden'));
+  if (wasHidden) {
+    el.classList.remove('hidden');
+    refreshPanels();
+    if (id === 'board') renderBoard();
+    if (id === 'worldMap') renderWorldMap();
+  }
 }
 function anyPanelOpen() {
-  return ['inventory', 'charsheet', 'questlog', 'board', 'tradePanel'].some(p => !$(p).classList.contains('hidden')) || !$('dialogue').classList.contains('hidden');
+  return ['inventory', 'charsheet', 'questlog', 'board', 'worldMap', 'tradePanel'].some(p => !$(p).classList.contains('hidden')) || !$('dialogue').classList.contains('hidden');
 }
 
 // ---------------- Leaderboard ----------------
@@ -735,36 +767,90 @@ function updateHint() {
   } else el.classList.add('hidden');
 }
 
-// ---------------- Minimap ----------------
+// ---------------- Minimap (zoomed local view) ----------------
 function drawMinimap() {
   const c = $('minimap');
   const x = c.getContext('2d');
   x.clearRect(0, 0, 170, 170);
   if (!World.minimapC) return;
-  x.drawImage(World.minimapC, 0, 0, 170, 170);
-  const sx = 170 / (MAP_W * TILE), sy = 170 / (MAP_H * TILE);
-  // npc dots (gold)
-  x.fillStyle = '#ffd700';
-  for (const n of G.npcs) x.fillRect(n.x * sx - 1.5, n.y * sy - 1.5, 3, 3);
-  // bosses
-  x.fillStyle = '#b04aff';
-  for (const e of G.enemies) if (e.boss && !e.dead) x.fillRect(e.x * sx - 2, e.y * sy - 2, 4, 4);
-  // friends (live players)
-  x.fillStyle = '#ffb84a';
+  const p = G.player;
+  const VIEW = 64;   // tiles across — a readable local radar, not the whole world
+  const cx0 = clamp(p.x / TILE - VIEW / 2, 0, MAP_W - VIEW);
+  const cy0 = clamp(p.y / TILE - VIEW / 2, 0, MAP_H - VIEW);
+  x.imageSmoothingEnabled = false;
+  x.drawImage(World.minimapC, cx0, cy0, VIEW, VIEW, 0, 0, 170, 170);
+  const sc = 170 / VIEW;
+  const dot = (wx, wy, color, r2) => {
+    const dx = wx / TILE - cx0, dy = wy / TILE - cy0;
+    if (dx < 1 || dy < 1 || dx > VIEW - 1 || dy > VIEW - 1) return;
+    x.fillStyle = color;
+    x.beginPath(); x.arc(dx * sc, dy * sc, r2 || 2.5, 0, 7); x.fill();
+  };
+  for (const n of G.npcs) dot(n.x, n.y, '#ffd700', 3);
+  for (const pt of G.portals) dot(pt.x, pt.y, '#7ad8e8', 3);
+  for (const e of G.enemies) if (e.boss && !e.dead) dot(e.x, e.y, '#b04aff', 3.5);
   for (const id in Net.remotes) {
     const r = Net.remotes[id];
-    x.fillRect(r.x * sx - 2, r.y * sy - 2, 4, 4);
+    dot(r.x, r.y, Party.has(+id) ? '#7fd18a' : '#ffb84a', 3);
   }
-  // current viewport
-  x.strokeStyle = 'rgba(255,255,255,.30)';
-  x.lineWidth = 1;
-  x.strokeRect(G.camera.x * sx, G.camera.y * sy, G.W * sx, G.H * sy);
-  // player
+  dot(p.x, p.y, '#fff', 3.2);
+  x.strokeStyle = '#c9a227'; x.lineWidth = 1.2;
+  x.beginPath(); x.arc((p.x / TILE - cx0) * sc, (p.y / TILE - cy0) * sc, 5, 0, 7); x.stroke();
+  // compass
+  x.fillStyle = 'rgba(0,0,0,.55)';
+  x.beginPath(); x.arc(85, 9, 8, 0, 7); x.fill();
+  x.font = 'bold 10px Verdana'; x.textAlign = 'center';
+  x.fillStyle = '#f4e9c8'; x.fillText('N', 85, 12.5);
+}
+
+// ---------------- World map (M) ----------------
+const MAP_LABELS = [
+  ['The Ashen Ruins', 70, 20], ['The Whisperwood', 50, 62], ['The Ember Caves', 117, 64],
+  ['Havenbrook', 70, 109], ['Southmeadow', 106, 114], ['The Sunken Crypt', 24, 119],
+  ['The Scorched Steppe', 166, 60], ['Frostpeak Highlands', 48, 164],
+  ['The Duskmire', 122, 166], ['The Shattered Spire', 174, 150],
+];
+function renderWorldMap() {
+  const c = $('worldMapCanvas');
+  if (!c || !World.minimapC) return;
+  const x = c.getContext('2d');
+  const S = c.width / MAP_W;
+  x.imageSmoothingEnabled = false;
+  x.clearRect(0, 0, c.width, c.height);
+  x.drawImage(World.minimapC, 0, 0, c.width, c.height);
+  // soft vignette so labels read
+  x.fillStyle = 'rgba(10,12,20,.18)';
+  x.fillRect(0, 0, c.width, c.height);
+  const dot = (wx, wy, color, r2) => {
+    x.fillStyle = color;
+    x.beginPath(); x.arc(wx / TILE * S, wy / TILE * S, r2, 0, 7); x.fill();
+  };
+  for (const pt of G.portals) dot(pt.x, pt.y, '#7ad8e8', 4);
+  for (const n of G.npcs) dot(n.x, n.y, '#ffd700', 4);
+  for (const e of G.enemies) if (e.boss && !e.dead) dot(e.x, e.y, '#b04aff', 5);
+  for (const id in Net.remotes) {
+    const r = Net.remotes[id];
+    dot(r.x, r.y, Party.has(+id) ? '#7fd18a' : '#ffb84a', 4.5);
+  }
+  // zone names
+  x.font = 'bold 12px Georgia';
+  x.textAlign = 'center';
+  for (const [name, tx, ty] of MAP_LABELS) {
+    x.fillStyle = 'rgba(0,0,0,.65)';
+    x.fillText(name, tx * S + 1, ty * S + 1);
+    x.fillStyle = '#e8dcc0';
+    x.fillText(name, tx * S, ty * S);
+  }
+  // you are here
   const p = G.player;
-  x.fillStyle = '#fff';
-  x.beginPath(); x.arc(p.x * sx, p.y * sy, 3, 0, 7); x.fill();
-  x.strokeStyle = '#c9a227'; x.lineWidth = 1;
-  x.beginPath(); x.arc(p.x * sx, p.y * sy, 4.5, 0, 7); x.stroke();
+  const pulse = Math.sin(G.time * 4) * 0.5 + 0.5;
+  dot(p.x, p.y, '#fff', 4);
+  x.strokeStyle = `rgba(201,162,39,${0.5 + pulse * 0.5})`;
+  x.lineWidth = 2;
+  x.beginPath(); x.arc(p.x / TILE * S, p.y / TILE * S, 7 + pulse * 3, 0, 7); x.stroke();
+  x.font = 'bold 10px Verdana';
+  x.fillStyle = '#ffe98a';
+  x.fillText('YOU', p.x / TILE * S, p.y / TILE * S - 12);
 }
 
 // ---------------- Overlays ----------------
@@ -836,8 +922,10 @@ const CONTROLS_LIST = [
   ['Character & Bag', 'I'],
   ['Character sheet & achievements', 'C'],
   ['Quest log', 'L'],
+  ['World map', 'M'],
   ['Ranked leaderboard', 'P'],
-  ['Mute audio', 'M'],
+  ['Party invite / leave', 'Right-click a player'],
+  ['Mute audio', 'N'],
   ['Menu · close windows', 'Esc'],
 ];
 function openControlsPane() {
@@ -911,6 +999,8 @@ function openCtxMenu(hit, cx, cy) {
       chat('player', `👋 waves at ${r.name}!`, p.name);
       Net.sendChat(`👋 waves at ${r.name}!`);
     });
+    if (Party.has(r.id)) add('🚪 Leave Party', () => Party.leaveParty());
+    else add('🤝 Invite to Party', () => Party.invite(r));
     add('⚔️ Duel', () => Duel.request(r));
     add('💱 Trade', () => Trade.request(r));
     add('🎁 Give item', () => openGiftMenu(r));

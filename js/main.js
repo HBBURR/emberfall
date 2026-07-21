@@ -118,7 +118,7 @@ function setupInput() {
     }
     // typing in any input (trade gold etc.) — don't run game keybinds
     if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.id !== 'nameInput') return;
-    if (G.paused) { if (k === 'm') toggleMute(); return; }
+    if (G.paused) { if (k === 'n') toggleMute(); return; }
     G.keys[k] = true;
     if (k >= '1' && k <= '4') useSkill(+k - 1);
     if (k === '5' || k === '6') {
@@ -127,7 +127,8 @@ function setupInput() {
       else chat('sys', bind ? `No ${ITEMS[bind].name}s left! Bram sells supplies.` : 'Nothing bound — drag a potion from your bag onto that slot.');
     }
     if (k === ' ') { e.preventDefault(); doRoll(); }
-    if (k === 'm') toggleMute();
+    if (k === 'm') togglePanel('worldMap');
+    if (k === 'n') toggleMute();
     if (k === 'e') interact();
     if (k === 'i') togglePanel('inventory');
     if (k === 'c') togglePanel('charsheet');
@@ -236,7 +237,9 @@ function update(dt) {
   updateHotbar();
   updateHint();
   updateTargetFrame();
+  updatePartyFrames();
   if (!$('inventory').classList.contains('hidden')) drawDoll();
+  if (!$('worldMap').classList.contains('hidden')) renderWorldMap();
   if (Trade.active) drawTradeDolls();
   // cursor feedback: pointer over friendlies/loot, crosshair over monsters
   const hover = entityAtScreen(G.mouse.x, G.mouse.y);
@@ -574,7 +577,11 @@ function drawLighting(ctx, cam) {
   for (const c of G.chests) if (!c.open) light(c.x - cam.x, c.y - cam.y, 46, 0.5);
   for (const g of G.groundItems) if (ITEMS[g.id].rar >= 1) light(g.x - cam.x, g.y - cam.y, 44, 0.55);
   for (const pt of G.portals) light(pt.x - cam.x, pt.y - cam.y, 95, 0.7);
-  for (const e of G.enemies) if (!e.dead && (e.kind === 'maw' || e.kind === 'drowned')) light(e.x - cam.x, e.y - cam.y, e.kind === 'maw' ? 150 : 60, 0.5);
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    if (e.kind === 'maw' || e.kind === 'hollow') light(e.x - cam.x, e.y - cam.y, 155, 0.5);
+    else if (e.kind === 'drowned' || e.kind === 'golem') light(e.x - cam.x, e.y - cam.y, 60, 0.5);
+  }
   for (const pr of G.projectiles) light(pr.x - cam.x, pr.y - cam.y, 55, 0.7);
   for (const e of G.enemies) {
     if (e.dead) continue;

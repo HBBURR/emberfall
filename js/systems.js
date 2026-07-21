@@ -25,7 +25,7 @@ function toggleMute() {
   const anyOn = G.settings.music || G.settings.sfx;
   G.settings.music = G.settings.sfx = !anyOn;
   saveSettings();
-  chat('sys', anyOn ? '🔇 Audio muted (M to unmute)' : '🔊 Audio on');
+  chat('sys', anyOn ? '🔇 Audio muted (N to unmute)' : '🔊 Audio on');
 }
 
 // ---------------- Ambient music ----------------
@@ -674,8 +674,8 @@ function tryClickInteract(hit, cx, cy) {
   if (hit.kind === 'chest') { d < CLICK_RANGE ? openChest(hit.chest) : tooFar(); return true; }
   if (hit.kind === 'node') { d < CLICK_RANGE ? gatherNode(hit.node) : tooFar(); return true; }
   if (hit.kind === 'portal') { d < CLICK_RANGE ? usePortal(hit.portal) : tooFar(); return true; }
-  if (hit.kind === 'bot' || hit.kind === 'remote') { openCtxMenu(hit, cx, cy); return true; }  // people: show options
-  return false;   // enemies, empty ground → normal attack
+  // people (players/villagers): left-click passes through — use RIGHT-click for their menu
+  return false;
 }
 
 function updateGatherNodes(dt) {
