@@ -31,17 +31,17 @@ const World = {
 
   regionAt(px, py) {
     const tx = px / TILE, ty = py / TILE;
-    if (tx >= 9 && tx <= 39 && ty >= 105 && ty <= 133) return 'crypt';
-    if (ty >= 134) {
-      if (tx <= 94) return 'frost';
-      if (tx <= 150) return 'mire';
+    if (tx >= 8 && tx <= 40 && ty >= 198) return 'crypt';
+    if (ty >= 150) {
+      if (tx <= 99) return 'frost';
+      if (tx <= 164) return 'mire';
       return 'spire';
     }
-    if (tx >= 135) return 'steppe';
+    if (tx >= 148) return 'steppe';
     if (dist(tx, ty, 70, 111) < 17) return 'village';
-    if (tx > 99 && tx < 135 && ty > 36 && ty < 94) return 'cave';
-    if (ty < 36 && tx < 135) return 'ruins';
-    if (ty < 89) return 'forest';
+    if (tx > 99 && tx < 136 && ty > 36 && ty < 94) return 'cave';
+    if (ty < 36 && tx < 112) return 'ruins';
+    if (ty < 89 && tx < 136) return 'forest';
     return 'meadow';
   },
   regionName(r) {
@@ -127,15 +127,16 @@ const World = {
       this.set(x, y, 5);
     }
     // ================= ACT 3 EXPANSION ZONES =================
-    // Scorched Steppe (east strip, lv 12-20): burnt earth, ember vents
-    for (let y = 8; y < 131; y++) for (let x = 136; x < 197; x++) {
+    // (pushed far from the starting basin so low levels never see them)
+    // Scorched Steppe (far east, lv 12-20): burnt earth, ember vents
+    for (let y = 8; y < 146; y++) for (let x = 148; x < 237; x++) {
       const t = this.t(x, y);
       if (t === 2 || t === 3) continue;
       this.set(x, y, 10);
       if (hash2(x * 3, y * 5) < 0.05) this.set(x, y, 5);
     }
-    // Frostpeak Highlands (southwest, lv 20-32): snowfields, ice rocks, pines
-    for (let y = 136; y < 197; y++) for (let x = 8; x < 95; x++) {
+    // Frostpeak Highlands (far southwest, lv 20-32): snowfields, ice rocks, pines
+    for (let y = 152; y < 237; y++) for (let x = 8; x < 100; x++) {
       const t = this.t(x, y);
       if (t === 2 || t === 3) continue;
       this.set(x, y, 11);
@@ -143,8 +144,8 @@ const World = {
       if (h < 0.045) this.set(x, y, 5);
       else if (h > 0.985) this.set(x, y, 6);
     }
-    // The Duskmire (south-central, lv 30-42): moss, black pools, dead trees
-    for (let y = 136; y < 197; y++) for (let x = 95; x < 151; x++) {
+    // The Duskmire (far south-central, lv 30-42): moss, black pools, dead trees
+    for (let y = 152; y < 237; y++) for (let x = 100; x < 165; x++) {
       const t = this.t(x, y);
       if (t === 2 || t === 3) continue;
       this.set(x, y, 12);
@@ -152,8 +153,8 @@ const World = {
       if (h < 0.05) this.set(x, y, 2);
       else if (h > 0.975) this.set(x, y, 6);
     }
-    // The Shattered Spire (southeast corner, lv 40-50): voidstone, shard walls
-    for (let y = 136; y < 197; y++) for (let x = 151; x < 197; x++) {
+    // The Shattered Spire (far southeast, lv 40-50): voidstone, shard walls
+    for (let y = 152; y < 237; y++) for (let x = 165; x < 237; x++) {
       const t = this.t(x, y);
       if (t === 2 || t === 3) continue;
       this.set(x, y, 13);
@@ -163,83 +164,85 @@ const World = {
     for (let a = 0; a < 48; a++) {
       const ang = a / 48 * Math.PI * 2;
       if (ang > 2.6 && ang < 3.7) continue;
-      const x = Math.round(176 + Math.cos(ang) * 11), y = Math.round(170 + Math.sin(ang) * 9);
+      const x = Math.round(200 + Math.cos(ang) * 11), y = Math.round(195 + Math.sin(ang) * 9);
       if (this.t(x, y) === 13) this.set(x, y, 5);
     }
-    this.blob(176, 170, 8, 13, R, true);
-    // zone transitions: dithered blend rows
-    for (let x = 8; x < 197; x++) for (let y = 131; y < 137; y++) {
+    this.blob(200, 195, 8, 13, R, true);
+    // zone transitions: dithered blends (south belt and east belt)
+    for (let x = 8; x < 237; x++) for (let y = 146; y < 153; y++) {
       const t = this.t(x, y);
       if (t !== 0 && t !== 10 && t !== 11 && t !== 12 && t !== 13) continue;
-      const south = this.t(x, 138);
-      if (hash2(x * 13, y * 17) > (y - 130) / 7) this.set(x, y, x >= 135 ? 10 : 0);
+      const south = this.t(x, 154);
+      if (hash2(x * 13, y * 17) > (y - 145) / 8) this.set(x, y, x >= 148 ? 10 : 0);
       else this.set(x, y, south === 11 || south === 12 || south === 13 ? south : 0);
     }
-    for (let y = 8; y < 131; y++) for (let x = 131; x < 137; x++) {
+    for (let y = 8; y < 146; y++) for (let x = 142; x < 149; x++) {
       const t = this.t(x, y);
-      if (t !== 0 && t !== 10 && t !== 4 && t !== 9) continue;
-      if (t === 4 || t === 9) continue;
-      if (hash2(x * 11, y * 13) > (x - 130) / 7) { if (t === 10) this.set(x, y, 0); }
+      if (t !== 0 && t !== 10) continue;
+      this.set(x, y, hash2(x * 11, y * 13) > (x - 141) / 8 ? 0 : 10);
     }
     // roads: east into the steppe (Sarra), south to Frostpeak/Duskmire/Spire
-    for (let x = 100; x <= 142; x++) {
+    for (let x = 100; x <= 155; x++) {
       const y = 101 + Math.round(Math.sin(x * 0.15) * 1.4);
       for (let dy = -1; dy <= 0; dy++) if (this.t(x, y + dy) !== 2) this.set(x, y + dy, 1);
     }
-    for (let y = 118; y <= 158; y++) {
+    for (let y = 118; y <= 172; y++) {
       const x = 70 + Math.round(Math.sin(y * 0.13) * 1.5);
       for (let dx = -1; dx <= 0; dx++) if (this.t(x + dx, y) !== 2) this.set(x + dx, y, 1);
     }
-    for (let x = 20; x <= 70; x++) {   // west branch to Oskar
-      const y = 152 + Math.round(Math.sin(x * 0.17) * 1.3);
+    for (let x = 18; x <= 70; x++) {   // west branch to Oskar
+      const y = 168 + Math.round(Math.sin(x * 0.17) * 1.3);
       if (this.t(x, y) !== 2) this.set(x, y, 1);
     }
-    for (let x = 70; x <= 170; x++) {  // east branch through the mire to the Spire
-      const y = 158 + Math.round(Math.sin(x * 0.11) * 1.6);
+    for (let x = 70; x <= 194; x++) {  // east branch through the mire toward the Spire
+      const y = 168 + Math.round(Math.sin(x * 0.11) * 1.6);
       for (let dy = -1; dy <= 0; dy++) if (this.t(x, y + dy) !== 2) this.set(x, y + dy, 1);
     }
-    // spire approach: spur from the south road up to the arena mouth
-    for (let y = 159; y <= 170; y++) if (this.t(170, y) !== 2) this.set(170, y, 1);
+    // spire approach: spur from the south road down to the arena mouth
+    for (let y = 168; y <= 195; y++) if (this.t(192, y) !== 2) this.set(192, y, 1);
+    for (let x = 189; x <= 193; x++) if (this.t(x, 195) !== 2) this.set(x, 195, 1);
     // NPC clearings (outposts)
-    this.blob(139, 103, 3, 1, R, true);   // Sarra's outpost
-    this.blob(16, 139, 3, 11, R, true); this.set(16, 139, 1); this.set(16, 140, 1);   // Oskar's camp
-    this.blob(100, 141, 3, 12, R, true); this.set(100, 141, 1);                        // Morwen's hut yard
+    this.blob(152, 101, 3, 1, R, true);   // Sarra's outpost
+    this.blob(16, 168, 3, 11, R, true); this.set(16, 168, 1); this.set(16, 169, 1);   // Oskar's camp
+    this.blob(105, 168, 3, 12, R, true); this.set(105, 168, 1);                        // Morwen's hut yard
 
-    // ---- the Sunken Crypt (Act 2 dungeon, southwest underdeep) ----
-    for (let y = 106; y < 133; y++) for (let x = 10; x < 39; x++) {
+    // ---- the Sunken Crypt (Act 2 dungeon) ----
+    // physically tucked in the far-southwest deep — players only reach it by portal,
+    // so its lv-9 Drowned are never visible from the starting basin
+    for (let y = 200; y < 231; y++) for (let x = 10; x < 39; x++) {
       const t = this.t(x, y);
       if (t === 2 || t === 3) continue;              // keep the ocean border
       this.set(x, y, 4);                              // stone floor
-      if (x === 10 || x === 38 || y === 106 || y === 132) this.set(x, y, 5);
+      if (x === 10 || x === 38 || y === 200 || y === 230) this.set(x, y, 5);
     }
     // flooded channels with bridge gaps
-    for (let y = 110; y < 129; y++) {
-      if (y === 118 || y === 119) continue;
+    for (let y = 204; y < 227; y++) {
+      if (y === 212 || y === 213) continue;
       if (this.t(17, y) === 4) this.set(17, y, 2);
       if (this.t(18, y) === 4) this.set(18, y, 2);
       if (this.t(30, y) === 4) this.set(30, y, 2);
       if (this.t(31, y) === 4) this.set(31, y, 2);
     }
     // pillars
-    for (const [px2, py2] of [[14, 114], [22, 112], [34, 114], [14, 122], [34, 122], [22, 120]])
+    for (const [px2, py2] of [[14, 208], [22, 206], [34, 208], [14, 216], [34, 216], [22, 214]])
       if (this.t(px2, py2) === 4) this.set(px2, py2, 5);
     // boss chamber: cleared circle with a rock ring, opening north
-    this.blob(24, 127, 5.5, 4, R, true);
+    this.blob(24, 224, 5.5, 4, R, true);
     for (let a = 0; a < 40; a++) {
       const ang = a / 40 * Math.PI * 2;
       if (ang > 4.0 && ang < 5.4) continue;           // north opening
-      const x = Math.round(24 + Math.cos(ang) * 6.5), y = Math.round(127 + Math.sin(ang) * 5);
+      const x = Math.round(24 + Math.cos(ang) * 6.5), y = Math.round(224 + Math.sin(ang) * 5);
       if (this.t(x, y) === 4 || this.t(x, y) === 2) this.set(x, y, 5);
     }
     // portals: pond shallows ⇅ crypt entry
     G.portals = [
-      { x: 93 * TILE + 16, y: 101 * TILE + 16, tx: 25 * TILE + 16, ty: 110 * TILE + 16,
+      { x: 93 * TILE + 16, y: 101 * TILE + 16, tx: 25 * TILE + 16, ty: 204 * TILE + 16,
         label: 'Descend into the Sunken Crypt', minLevel: 8, down: true },
-      { x: 24 * TILE + 16, y: 108 * TILE + 16, tx: 94 * TILE + 16, ty: 102 * TILE + 16,
+      { x: 24 * TILE + 16, y: 202 * TILE + 16, tx: 94 * TILE + 16, ty: 102 * TILE + 16,
         label: 'Climb back to Southmeadow', minLevel: 0, down: false },
     ];
     // make sure both portal mouths are walkable
-    this.set(93, 101, 0); this.set(24, 108, 4); this.set(25, 110, 4); this.set(94, 102, 0);
+    this.set(93, 101, 0); this.set(24, 202, 4); this.set(25, 204, 4); this.set(94, 102, 0);
 
     // village clearing
     for (let y = 94; y < 128; y++) for (let x = 53; x < 88; x++) {
@@ -278,9 +281,9 @@ const World = {
     const nodeSpots = [
       ...[[64, 55], [77, 48], [58, 70], [82, 74], [67, 42], [88, 58], [54, 46], [75, 82], [61, 80], [85, 44]].map(s => [s[0], s[1], 'moonpetal']),
       ...[[55, 95], [62, 101], [80, 96], [88, 102], [50, 100], [74, 100], [90, 95], [45, 96]].map(s => [s[0], s[1], 'sunberry']),
-      ...[[150, 30], [165, 55], [180, 25], [190, 80], [155, 90], [172, 110], [145, 70]].map(s => [s[0], s[1], 'cinder_bloom']),
-      ...[[25, 150], [45, 170], [70, 185], [30, 188], [60, 145], [80, 165]].map(s => [s[0], s[1], 'frost_lily']),
-      ...[[105, 155], [120, 175], [135, 145], [110, 188], [140, 180], [125, 160]].map(s => [s[0], s[1], 'gloomcap']),
+      ...[[162, 30], [178, 55], [195, 25], [210, 80], [168, 95], [188, 115], [158, 70]].map(s => [s[0], s[1], 'cinder_bloom']),
+      ...[[25, 165], [45, 185], [70, 200], [30, 205], [60, 160], [80, 180]].map(s => [s[0], s[1], 'frost_lily']),
+      ...[[110, 170], [122, 190], [140, 162], [112, 205], [148, 195], [130, 178]].map(s => [s[0], s[1], 'gloomcap']),
     ];
     for (const [px, py, item] of nodeSpots) {
       let x = px, y = py;

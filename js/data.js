@@ -5,7 +5,7 @@
 'use strict';
 
 const TILE = 32;
-const MAP_W = 200, MAP_H = 200;
+const MAP_W = 240, MAP_H = 240;
 const MAX_LEVEL = 50;
 
 // Global game state container
@@ -342,11 +342,11 @@ const NPC_DEFS = [
     idle: ['Steel doesn\'t lie, friend.', 'Buy something or stop blocking my light!', 'That Warden ever seen Embersteel? Didn\'t think so.'] },
   { id: 'kael', name: 'Scout Kael', tx: 70, ty: 91, color: '#4a6a4a', hair: '#2a2a2a', role: 'Scout',
     idle: ['Eyes north. Always north.', 'The wood whispers. I\'ve stopped answering.', 'Quiet feet keep loud hearts alive.'] },
-  { id: 'sarra', name: 'Captain Sarra', tx: 139, ty: 103, color: '#8a5a2a', hair: '#6a3a1a', role: 'Emberguard Captain',
+  { id: 'sarra', name: 'Captain Sarra', tx: 152, ty: 101, color: '#8a5a2a', hair: '#6a3a1a', role: 'Emberguard Captain',
     idle: ['The steppe burns without fire. Explain that.', 'Hold the line. There is always a line.', 'My scouts don\'t come back from the east lately.'] },
-  { id: 'oskar', name: 'Oskar the Hunter', tx: 16, ty: 139, color: '#5a7a9a', hair: '#c8c8c8', role: 'Giant-Hunter',
+  { id: 'oskar', name: 'Oskar the Hunter', tx: 16, ty: 168, color: '#5a7a9a', hair: '#c8c8c8', role: 'Giant-Hunter',
     idle: ['Cold keeps you honest.', 'I\'ve killed nine giants. The tenth killed my pride.', 'Don\'t laugh at the hat.'] },
-  { id: 'morwen', name: 'Witch Morwen', tx: 100, ty: 141, color: '#4a3a5a', hair: '#8a8a9a', role: 'Mire-Witch',
+  { id: 'morwen', name: 'Witch Morwen', tx: 105, ty: 168, color: '#4a3a5a', hair: '#8a8a9a', role: 'Mire-Witch',
     idle: ['The bog remembers everything it eats.', 'I dreamed of you. You were shorter.', 'The Spire hums at midnight. Listen.'] },
 ];
 
@@ -377,11 +377,11 @@ const CHEST_SPOTS = [
   [52, 50, 2], [85, 78, 2],             // Whisperwood
   [106, 45, 3], [128, 85, 3],           // Ember Caves
   [38, 12, 4], [100, 10, 4],            // Ashen Ruins
-  [14, 111, 5], [34, 129, 5],           // Sunken Crypt (epic tier)
-  [160, 30, 6], [185, 70, 6],           // Scorched Steppe
-  [30, 160, 7], [70, 185, 7],           // Frostpeak
-  [110, 185, 8], [140, 160, 8],         // Duskmire
-  [165, 185, 9], [190, 155, 9],         // Shattered Spire
+  [16, 205, 5], [36, 226, 5],           // Sunken Crypt (epic tier)
+  [170, 30, 6], [210, 80, 6],           // Scorched Steppe
+  [30, 170, 7], [70, 200, 7],           // Frostpeak
+  [115, 200, 8], [150, 170, 8],         // Duskmire
+  [190, 212, 9], [222, 172, 9],         // Shattered Spire
 ];
 const CHEST_LOOT = {
   1: ['hp_potion', 'mp_potion', 'leather_cap', 'worn_boots'],

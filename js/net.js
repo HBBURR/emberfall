@@ -37,7 +37,10 @@ const Net = {
       if (gen !== this._gen) return;
       this.connected = true;
       const p = G.player;
-      this.send({ t: 'join', name: p.name, cls: p.cls, level: p.level, x: Math.round(p.x), y: Math.round(p.y) });
+      this.send({
+        t: 'join', name: p.name, cls: p.cls, level: p.level, x: Math.round(p.x), y: Math.round(p.y),
+        auth: (Auth.user && Auth.token) ? { user: Auth.user, token: Auth.token } : undefined,
+      });
       chat('sys', '🌐 Connected to the realm — other adventurers can see you now.');
     };
     ws.onmessage = ev => {
@@ -127,7 +130,7 @@ const Net = {
         sfx('quest');
       }
     } else if (m.t === 'chat') {
-      chat('player', m.text, m.name);
+      chat('player', m.text, m.name, m.dev);
     } else if (m.t === 'leave') {
       const r = this.remotes[m.id];
       if (r) { chat('sys', `${r.name} has left the realm.`); delete this.remotes[m.id]; }
@@ -139,7 +142,7 @@ const Net = {
 
   addRemote(pl) {
     this.remotes[pl.id] = {
-      id: pl.id, name: pl.name, cls: pl.cls || 'warrior', level: pl.level || 1,
+      id: pl.id, name: pl.name, cls: pl.cls || 'warrior', level: pl.level || 1, dev: !!pl.dev,
       x: pl.x || 70 * TILE, y: pl.y || 118 * TILE, tx: pl.x || 70 * TILE, ty: pl.y || 118 * TILE,
       facing: 1, moving: false, walkT: Math.random() * 7,
     };
@@ -584,7 +587,8 @@ function drawRemote(ctx, r, cam) {
   const c = CLASSES[r.cls];
   drawHumanoid(ctx, x, y, {
     color: c.color, hair: c.hair, facing: r.facing, walkT: r.walkT, moving: r.moving,
-    name: r.name, nameColor: Party.has(r.id) ? '#7fd18a' : '#ffb84a', level: r.level,
+    name: (r.dev ? '⚙ ' : '') + r.name,
+    nameColor: r.dev ? '#ff5a5a' : Party.has(r.id) ? '#7fd18a' : '#ffb84a', level: r.level,
     weapon: r.cls === 'warrior' ? 'sword' : r.cls === 'mage' ? 'staff' : 'bow',
     wtier: r.wt === undefined ? 0 : r.wt,
     gear: { a: r.av >= 0 ? r.av : null, h: r.hv >= 0 ? r.hv : null, b: r.bv >= 0 ? r.bv : null },

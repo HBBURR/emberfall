@@ -7,7 +7,7 @@
 'use strict';
 
 const Auth = {
-  user: null, token: null, chars: {}, slot: null, guest: false,
+  user: null, token: null, chars: {}, slot: null, guest: false, dev: false,
   mode: 'login',          // login | create
   online: location.protocol !== 'file:',
 
@@ -47,7 +47,7 @@ const Auth = {
       $('authUser').value = saved.user;
       this.api('/api/session', { user: saved.user, token: saved.token }).then(r => {
         if (r.ok) {
-          this.user = r.user; this.token = saved.token; this.chars = r.chars || {};
+          this.user = r.user; this.token = saved.token; this.chars = r.chars || {}; this.dev = !!r.dev;
           this.mergeMirror();
           this.showCharSelect();
         }
@@ -80,11 +80,27 @@ const Auth = {
     $('authGo').disabled = false;
     if (!r.ok) {
       if (r.error === 'no_account') {
+        // the free-tier realm resets sometimes; if this device remembers the
+        // account, quietly rebuild it and restore the heroes
+        const saved = this.loadLocal();
+        if (saved && saved.user && saved.user.toLowerCase() === user.toLowerCase() &&
+            saved.mirror && Object.keys(saved.mirror).length) {
+          const rr = await this.api('/api/register', { user, pass });
+          if (rr.ok) {
+            this.user = rr.user; this.token = rr.token; this.chars = {}; this.dev = !!rr.dev;
+            this.mergeMirror();
+            this.saveLocal();
+            sfx('quest');
+            this.showCharSelect();
+            $('csUser').textContent = '⚜ ' + this.user + ' · the realm had reset — your heroes were restored from this device';
+            return;
+          }
+        }
         this.err('No account with that name — switch to Create Account.', true);
       } else this.err(r.error || 'Something went wrong.', true);
       return;
     }
-    this.user = r.user; this.token = r.token; this.chars = r.chars || {};
+    this.user = r.user; this.token = r.token; this.chars = r.chars || {}; this.dev = !!r.dev;
     this.mergeMirror();     // realm reset? restore heroes from this device
     this.saveLocal();
     sfx('quest');
@@ -92,8 +108,14 @@ const Auth = {
   },
 
   logout() {
-    this.user = null; this.token = null; this.chars = {}; this.slot = null;
-    try { localStorage.removeItem('emberfall_auth_v1'); } catch (e) {}
+    // end the session but KEEP the local hero mirror — it's the backup that
+    // survives free-tier realm resets
+    const saved = this.loadLocal();
+    if (saved) {
+      delete saved.token;
+      try { localStorage.setItem('emberfall_auth_v1', JSON.stringify(saved)); } catch (e) {}
+    }
+    this.user = null; this.token = null; this.chars = {}; this.slot = null; this.dev = false;
     $('charSelect').classList.add('hidden');
     $('charCreate').classList.add('hidden');
     $('authCard').classList.remove('hidden');
@@ -222,6 +244,14 @@ const Auth = {
   },
   // called by the FORGE HERO button (main.js) — routes account vs guest
   forgeHero(cls, name) {
+    name = String(name || '').trim();
+    if (name.length < 5) {
+      const ne = $('nameErr');
+      ne.textContent = 'Hero names must be at least 5 letters long.';
+      $('nameInput').focus();
+      return;
+    }
+    $('nameErr').textContent = '';
     initAudio();
     G.player = makePlayer(cls, name);
     G.quests = {};

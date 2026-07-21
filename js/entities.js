@@ -156,21 +156,21 @@ function spawnAllEnemies() {
   put('bat', 11, 102, 120, 40, 90, [124, 50, 9]);
   put('slime', 9, 112, 130, 56, 90, [124, 50, 9]);
   put('cultist', 11, 36, 104, 8, 32, [70, 15, 11]);
-  put('drowned', 8, 12, 37, 108, 126, [24, 127, 7]);
-  // Act 3 zones
-  put('ashhound', 14, 138, 195, 10, 128, [139, 103, 6]);
-  put('emberwisp', 10, 145, 195, 15, 125, [139, 103, 6]);
-  put('cindergolem', 8, 150, 194, 20, 120, [139, 103, 8]);
-  put('frostwolf', 14, 10, 92, 140, 194, [16, 139, 6]);
-  put('iceshade', 10, 15, 90, 145, 194, [16, 139, 8]);
-  put('frostgiant', 5, 25, 88, 155, 192, [16, 139, 10]);
-  put('bogfiend', 12, 97, 148, 140, 194, [100, 141, 6]);
-  put('duskwisp', 10, 100, 148, 145, 194, [100, 141, 7]);
-  put('mirehulk', 8, 100, 148, 150, 192, [100, 141, 9]);
-  put('voidknight', 12, 153, 194, 140, 194, [176, 170, 10]);
+  // Act 3 zones (far from the starting basin)
+  put('ashhound', 14, 152, 234, 10, 142, [152, 101, 6]);
+  put('emberwisp', 10, 158, 234, 15, 140, [152, 101, 6]);
+  put('cindergolem', 8, 162, 232, 20, 138, [152, 101, 8]);
+  put('frostwolf', 14, 10, 96, 156, 196, [16, 168, 6]);
+  put('iceshade', 10, 15, 94, 158, 196, [16, 168, 8]);
+  put('frostgiant', 5, 25, 92, 162, 194, [16, 168, 10]);
+  put('bogfiend', 12, 102, 162, 156, 232, [105, 168, 6]);
+  put('duskwisp', 10, 104, 162, 160, 232, [105, 168, 7]);
+  put('mirehulk', 8, 104, 162, 165, 230, [105, 168, 9]);
+  put('voidknight', 12, 167, 234, 156, 232, [200, 195, 10]);
+  put('drowned', 8, 12, 37, 202, 222, [24, 224, 7]);
   G.enemies.push(spawnEnemy('gloomfang', 124, 50));
-  G.enemies.push(spawnEnemy('maw', 24, 127));
-  G.enemies.push(spawnEnemy('hollowking', 176, 170));
+  G.enemies.push(spawnEnemy('maw', 24, 224));
+  G.enemies.push(spawnEnemy('hollowking', 200, 195));
   if (!G.bossDead) G.enemies.push(spawnEnemy('warden', 70, 14));
 }
 

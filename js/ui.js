@@ -190,12 +190,15 @@ function checkZone() {
 }
 
 // ---------------- Chat ----------------
-function chat(kind, text, pname) {
+function chat(kind, text, pname, isDev) {
   const box = $('chatBox');
   const d = document.createElement('div');
   if (kind === 'sys') { d.className = 'sys'; d.textContent = text; }
   else if (kind === 'combat') { d.className = 'combat'; d.textContent = text; }
-  else { d.innerHTML = `<span class="pname">[${pname}]</span> ${text.replace(/</g, '&lt;')}`; }
+  else {
+    const style = isDev ? ' style="color:#ff5a5a"' : '';
+    d.innerHTML = `<span class="pname"${style}>[${isDev ? '⚙ ' : ''}${pname}]</span> ${text.replace(/</g, '&lt;')}`;
+  }
   box.appendChild(d);
   while (box.children.length > 9) box.removeChild(box.firstChild);
 }
@@ -807,9 +810,9 @@ function drawMinimap() {
 // ---------------- World map (M) ----------------
 const MAP_LABELS = [
   ['The Ashen Ruins', 70, 20], ['The Whisperwood', 50, 62], ['The Ember Caves', 117, 64],
-  ['Havenbrook', 70, 109], ['Southmeadow', 106, 114], ['The Sunken Crypt', 24, 119],
-  ['The Scorched Steppe', 166, 60], ['Frostpeak Highlands', 48, 164],
-  ['The Duskmire', 122, 166], ['The Shattered Spire', 174, 150],
+  ['Havenbrook', 70, 106], ['Southmeadow', 110, 122], ['The Sunken Crypt', 24, 214],
+  ['The Scorched Steppe', 192, 60], ['Frostpeak Highlands', 52, 190],
+  ['The Duskmire', 132, 192], ['The Shattered Spire', 200, 178],
 ];
 function renderWorldMap() {
   const c = $('worldMapCanvas');

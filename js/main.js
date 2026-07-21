@@ -90,7 +90,7 @@ function setupInput() {
       if (k === 'enter') {
         const txt = ci.value.trim();
         if (txt) {
-          chat('player', txt, G.player.name);
+          chat('player', txt, G.player.name, Auth.dev);
           if (Net.connected) Net.sendChat(txt);
         }
         ci.value = ''; ci.classList.add('hidden'); ci.blur();
@@ -329,7 +329,9 @@ function drawPlayerChar(ctx, cam) {
   const c = CLASSES[p.cls];
   drawHumanoid(ctx, p.x - cam.x, p.y - cam.y, {
     color: c.color, hair: c.hair, facing: Math.cos(p.facing) < 0 ? -1 : 1,
-    walkT: p.walkT, moving: p.moving, name: p.name, nameColor: '#8fffb0',
+    walkT: p.walkT, moving: p.moving,
+    name: (Auth.dev ? '⚙ ' : '') + p.name,
+    nameColor: Auth.dev ? '#ff5a5a' : '#8fffb0',
     weapon: p.cls === 'warrior' ? 'sword' : p.cls === 'mage' ? 'staff' : 'bow',
     wtier: playerWeaponTier(p),
     gear: gearVis(p.equip),

@@ -40,6 +40,16 @@ setInterval(() => {
   fs.writeFile(ACCOUNTS_FILE, JSON.stringify(accounts), () => {});
 }, 3000);
 
+// Dev accounts: set DEV_USERS=name1,name2 in the environment (Render → Environment),
+// or list one username per line in dev_users.txt next to server.js (gitignored).
+const DEV_SET = new Set(String(process.env.DEV_USERS || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean));
+try {
+  fs.readFileSync(path.join(ROOT, 'dev_users.txt'), 'utf8').split(/\r?\n/)
+    .map(s => s.trim().toLowerCase()).filter(Boolean).forEach(u => DEV_SET.add(u));
+} catch (e) {}
+if (DEV_SET.size) log(`dev accounts: ${[...DEV_SET].join(', ')}`);
+function isDev(key) { return DEV_SET.has(key); }
+
 function hashPass(pass, salt) { return crypto.scryptSync(String(pass), salt, 64).toString('hex'); }
 // stateless session token: survives server restarts, invalidated by password change
 function tokenFor(key) {
@@ -83,7 +93,7 @@ function handleApi(req, res, urlPath) {
       accounts.users[key] = { user, salt, hash: hashPass(body.pass, salt), chars: {}, created: Date.now() };
       accDirty = true;
       log(`account created: ${user}`);
-      return j({ ok: true, token: tokenFor(key), user, chars: {} });
+      return j({ ok: true, token: tokenFor(key), user, chars: {}, dev: isDev(key) });
     }
     if (urlPath === '/api/login') {
       if (rateLimited(ip)) return j({ ok: false, error: 'Slow down a little — try again in a few minutes.' });
@@ -92,12 +102,12 @@ function handleApi(req, res, urlPath) {
       if (hashPass(body.pass, u.salt) !== u.hash) return j({ ok: false, error: 'Wrong password.' });
       u.lastLogin = Date.now();
       accDirty = true;
-      return j({ ok: true, token: tokenFor(key), user: u.user, chars: u.chars || {} });
+      return j({ ok: true, token: tokenFor(key), user: u.user, chars: u.chars || {}, dev: isDev(key) });
     }
     if (urlPath === '/api/session') {
       const u = accounts.users[key];
       if (!u || !validToken(key, body.token)) return j({ ok: false, error: 'no_session' });
-      return j({ ok: true, user: u.user, chars: u.chars || {} });
+      return j({ ok: true, user: u.user, chars: u.chars || {}, dev: isDev(key) });
     }
     if (urlPath === '/api/savechar') {
       const u = accounts.users[key];
@@ -209,13 +219,19 @@ function handleMessage(client, m) {
     client.cls = ['warrior', 'mage', 'ranger'].includes(m.cls) ? m.cls : 'warrior';
     client.level = m.level | 0;
     client.x = +m.x || 0; client.y = +m.y || 0;
+    // dev status is token-verified so nobody can impersonate a dev by name
+    client.dev = false;
+    if (m.auth && m.auth.user) {
+      const akey = String(m.auth.user).toLowerCase();
+      if (validToken(akey, m.auth.token) && isDev(akey)) client.dev = true;
+    }
     // tell the newcomer who's already here and who runs the world
     send(client, {
       t: 'welcome', id: client.id, authId: authorityId(), board: topList(),
       players: [...clients.values()].filter(c => c.name && c.id !== client.id)
-        .map(c => ({ id: c.id, name: c.name, cls: c.cls, level: c.level, x: c.x, y: c.y })),
+        .map(c => ({ id: c.id, name: c.name, cls: c.cls, level: c.level, x: c.x, y: c.y, dev: c.dev })),
     });
-    broadcast({ t: 'join', id: client.id, name: client.name, cls: client.cls, level: client.level, x: client.x, y: client.y }, client.id);
+    broadcast({ t: 'join', id: client.id, name: client.name, cls: client.cls, level: client.level, x: client.x, y: client.y, dev: client.dev }, client.id);
     broadcastAuthority();
     log(`#${client.id} joined as ${client.name} the ${client.cls}`);
   } else if (m.t === 'state' && client.name) {
@@ -223,7 +239,7 @@ function handleMessage(client, m) {
     broadcast({ t: 'state', id: client.id, x: client.x, y: client.y, facing: m.facing === -1 ? -1 : 1, moving: !!m.moving, level: client.level, wt: m.wt | 0 }, client.id);
   } else if (m.t === 'chat' && client.name) {
     const text = String(m.text || '').slice(0, 120);
-    if (text) broadcast({ t: 'chat', id: client.id, name: client.name, text }, client.id);
+    if (text) broadcast({ t: 'chat', id: client.id, name: client.name, text, dev: client.dev }, client.id);
   } else if (m.t === 'score' && client.name) {
     const prev = board[client.name];
     const score = m.score | 0;
