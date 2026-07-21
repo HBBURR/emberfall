@@ -1,0 +1,10 @@
+# Render.com blueprint — deploys the Emberfall realm server as a free web service.
+# In Render: New + → Blueprint → pick this repo, and it configures itself.
+services:
+  - type: web
+    name: emberfall
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    healthCheckPath: /
