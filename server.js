@@ -94,8 +94,13 @@ function handleApi(req, res, urlPath) {
       if (String(body.pass || '').length < 4) return j({ ok: false, error: 'Password must be at least 4 characters.' });
       if (accounts.users[key]) return j({ ok: false, error: 'That name is already taken.' });
       // reserved dev usernames need the secret key — even after a realm reset
-      if (isDev(key) && (!DEV_KEY || String(body.devkey || '') !== DEV_KEY))
-        return j({ ok: false, error: 'reserved' });
+      if (isDev(key)) {
+        const want = DEV_KEY.trim();
+        const got = String(body.devkey || '').trim();
+        if (!want) return j({ ok: false, error: 'reserved_unconfigured' });   // realm has no DEV_KEY env var
+        if (!got) return j({ ok: false, error: 'reserved' });                 // key not entered yet
+        if (got !== want) return j({ ok: false, error: 'reserved_wrong' });   // key mismatch
+      }
       const salt = crypto.randomBytes(12).toString('hex');
       accounts.users[key] = { user, salt, hash: hashPass(body.pass, salt), chars: {}, created: Date.now() };
       accDirty = true;

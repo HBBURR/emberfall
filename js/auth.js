@@ -79,9 +79,15 @@ const Auth = {
     const devkey = $('authKey').value || (this.loadLocal() || {}).devkey || undefined;
     const r = await this.api(this.mode === 'login' ? '/api/login' : '/api/register', { user, pass, devkey });
     $('authGo').disabled = false;
-    if (!r.ok && r.error === 'reserved') {
+    if (!r.ok && String(r.error || '').startsWith('reserved')) {
       $('authKey').classList.remove('hidden');
-      this.err('That name is reserved for a Dev — enter the Dev key.', true);
+      this.err(
+        r.error === 'reserved_unconfigured'
+          ? 'This realm has no DEV_KEY configured — add the DEV_KEY environment variable on the server, then retry.'
+          : r.error === 'reserved_wrong'
+            ? 'That Dev key isn\'t right — check it and try again.'
+            : 'That name is reserved for a Dev — enter the Dev key.',
+        true);
       $('authKey').focus();
       return;
     }
