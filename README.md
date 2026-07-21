@@ -64,6 +64,9 @@ walks beside you, and talks in real chat (press **Enter** to type).
   visible to other players in multiplayer.
 - **Set bonuses** — 2+ matched Ember pieces: +4 Atk/+4 Def; 2+ Dawn pieces: +8 Atk/+8 Def/+8% Crit.
   Shown on the character sheet and flagged in item tooltips.
+- **PvP duels** — right-click a fellow player → ⚔️ Duel. A 3-2-1 countdown, then fight: dodge
+  rolls grant i-frames, and the first player beaten below 10% HP yields (no death). Victories are
+  announced realm-wide, count toward ranked score, and unlock the Duelist achievement at 3 wins.
 - **Trading** — right-click a fellow player → 💱 Trade opens a two-way trade window showing
   **both characters face to face**: each side offers items and gold, any change resets acceptance,
   and the swap executes when both accept. **The townsfolk trade too** — they make an offer,
