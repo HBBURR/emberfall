@@ -238,6 +238,7 @@ function useSkill(slot) {
       while (da < -Math.PI) da += Math.PI * 2;
       if (Math.abs(da) < sk.arc / 2) dealToEnemy(e, sk.mult);
     }
+    Duel.tryMelee(sk, aim);
   } else if (sk.type === 'proj') {
     sfx('cast');
     G.projectiles.push({ x: p.x, y: p.y - 10, vx: Math.cos(aim) * sk.speed, vy: Math.sin(aim) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 300) / sk.speed, kind: p.cls === 'mage' ? 'bolt' : 'arrow' });
@@ -261,6 +262,7 @@ function useSkill(slot) {
       if (dist(p.x, p.y, e.x, e.y) < sk.range + (e.scale - 1) * 20)
         dealToEnemy(e, sk.mult, { stun: sk.stun, slow: sk.slow });
     }
+    Duel.tryNova(sk);
   } else if (sk.type === 'targetaoe') {
     sfx('cast');
     const wm = { x: G.mouse.x + G.camera.x, y: G.mouse.y + G.camera.y };
@@ -298,6 +300,8 @@ function updatePendingAoes(dt) {
       for (const e of G.enemies) {
         if (!e.dead && dist(a.x, a.y, e.x, e.y) < a.r + (e.scale - 1) * 20) dealToEnemy(e, a.mult);
       }
+      const dr = Duel.peer();
+      if (dr && dist(a.x, a.y, dr.x, dr.y) < a.r + 14) Duel.hitPeer(a.mult);
     }
   }
 }
@@ -311,6 +315,16 @@ function updateProjectiles(dt) {
     let kill = pr.ttl <= 0;
     if (World.blocked(pr.x, pr.y) && !pr.pierce) kill = true;
     if (pr.from === 'player') {
+      const dr = Duel.peer();
+      if (dr && !pr.duelHit && dist(pr.x, pr.y, dr.x, dr.y) < 17) {
+        pr.duelHit = true;
+        Duel.hitPeer(pr.mult);
+        if (!pr.pierce) {
+          spawnParticles(pr.x, pr.y, 4, '#ff9a7a', 60, 0.25);
+          G.projectiles.splice(i, 1);
+          continue;
+        }
+      }
       for (const e of G.enemies) {
         if (e.dead) continue;
         if (dist(pr.x, pr.y, e.x, e.y) < 16 + (e.scale - 1) * 18) {
@@ -713,7 +727,7 @@ function computeScore(p) {
   const quests = QUESTS.filter(q => qState(q.id).state === 'turned').length;
   const kills = Object.values(p.kills).reduce((a, b) => a + b, 0);
   const achs = Object.keys(p.ach).length;
-  return p.level * 1000 + quests * 150 + kills * 5 + achs * 250 + (G.bossDead ? 1000 : 0);
+  return p.level * 1000 + quests * 150 + kills * 5 + achs * 250 + (p.counters.duelWins || 0) * 80 + (G.bossDead ? 1000 : 0);
 }
 
 // local leaderboard (offline / solo): your characters, ranked
@@ -789,7 +803,7 @@ function applySave(data) {
     hp: data.hp, mp: data.mp, inv,
     equip: Object.assign({ weapon: null, armor: null, helm: null, boots: null, trinket: null }, data.equip),
     kills: data.kills || {}, playTime: data.playTime || 0,
-    ach: data.ach || {}, counters: data.counters || { elites: 0, fish: 0 },
+    ach: data.ach || {}, counters: Object.assign({ elites: 0, fish: 0, duelWins: 0 }, data.counters),
     skillOrder: Array.isArray(data.skillOrder) && data.skillOrder.length === 4 ? data.skillOrder : [0, 1, 2, 3],
     potionBinds: Array.isArray(data.potionBinds) && data.potionBinds.length === 2 ? data.potionBinds : ['hp_potion', 'mp_potion'],
   });

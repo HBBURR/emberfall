@@ -113,6 +113,8 @@ const Net = {
       if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; }
     } else if (m.t && m.t.startsWith('trade')) {
       Trade.handle(m);
+    } else if (m.t && m.t.startsWith('duel')) {
+      Duel.handle(m);
     } else if (m.t === 'gift') {
       if (m.to === this.id) {
         addItem(m.item, 1);
@@ -126,6 +128,7 @@ const Net = {
       const r = this.remotes[m.id];
       if (r) { chat('sys', `${r.name} has left the realm.`); delete this.remotes[m.id]; }
       if (Trade.active && Trade.active.peerId === m.id) Trade.close('Trade cancelled — they left the realm.');
+      if (Duel.peerId === m.id) Duel.reset('Duel over — your opponent left the realm.');
     }
   },
 
@@ -355,6 +358,143 @@ const Trade = {
     if (msg) chat('sys', msg);
   },
   render() { renderTradePanel(this.active); },
+};
+
+// ============================================================
+// Duel — honorable PvP. Challenge via right-click; 3-2-1 then
+// fight. Dodge rolls grant i-frames. The first player beaten
+// below 10% HP yields (no death) and the realm hears about it.
+// ============================================================
+const Duel = {
+  peerId: null, peerName: null, state: 'none', countdown: 0,   // none | counting | fighting
+
+  request(r) {
+    if (this.state !== 'none') { chat('sys', 'You are already in a duel.'); return; }
+    if (Trade.active) { chat('sys', 'Finish your trade first.'); return; }
+    Net.send({ t: 'duelreq', to: r.id });
+    chat('sys', `⚔ Duel challenge sent to ${r.name}...`);
+  },
+
+  handle(m) {
+    if (m.t === 'duelreq') {
+      if (m.to !== Net.id) return;
+      const r = Net.remotes[m.from];
+      const name = r ? r.name : 'An adventurer';
+      if (this.state !== 'none' || Trade.active) { Net.send({ t: 'dueldec', to: m.from }); return; }
+      showAsk(`⚔ <b style="color:#e15b5b">${name}</b> challenges you to a <b>DUEL</b>!`,
+        () => { Net.send({ t: 'duelacc', to: m.from }); this.begin(m.from, name); },
+        () => Net.send({ t: 'dueldec', to: m.from }));
+    } else if (m.t === 'duelacc') {
+      if (m.to !== Net.id) return;
+      const r = Net.remotes[m.from];
+      this.begin(m.from, r ? r.name : 'Adventurer');
+    } else if (m.t === 'dueldec') {
+      if (m.to === Net.id) chat('sys', 'Your duel challenge was declined.');
+    } else if (m.t === 'duelhit') {
+      if (m.to === Net.id && this.fighting() && m.from === this.peerId) this.takeHit(m.dmg | 0);
+    } else if (m.t === 'duelyield') {
+      // broadcast: everyone hears the result
+      chat('sys', `⚔ ${m.winnerName} has defeated ${m.loserName} in a duel!`);
+      if (m.to === Net.id && m.from === this.peerId) {   // I won
+        const p = G.player;
+        p.counters.duelWins = (p.counters.duelWins || 0) + 1;
+        if (p.counters.duelWins >= 3) unlockAch('duelist');
+        questBanner('⚔ DUEL VICTORY ⚔');
+        sfx('levelup');
+        G.shake = 0.4;
+        this.reset();
+      }
+    } else if (m.t === 'duelcancel') {
+      if (m.from === this.peerId && this.state !== 'none') this.reset('Duel cancelled.');
+    }
+  },
+
+  begin(peerId, name) {
+    this.peerId = peerId;
+    this.peerName = name;
+    this.state = 'counting';
+    this.countdown = 3.999;
+    this._shown = null;
+    chat('sys', `⚔ Duel with ${name} — ready yourself!`);
+    sfx('quest');
+  },
+
+  tick(dt) {
+    if (this.state === 'none') return;
+    const r = Net.remotes[this.peerId];
+    if (!r) { this.reset('Duel over — opponent vanished.'); return; }
+    if (dist(G.player.x, G.player.y, r.x, r.y) > 750) {
+      Net.send({ t: 'duelcancel', to: this.peerId });
+      this.reset('Duel cancelled — you drifted too far apart.');
+      return;
+    }
+    if (this.state === 'counting') {
+      this.countdown -= dt;
+      const n = Math.ceil(this.countdown);
+      if (n !== this._shown && n > 0) { this._shown = n; flashDuel(String(n)); sfx('gather'); }
+      if (this.countdown <= 0) { this.state = 'fighting'; flashDuel('⚔ FIGHT ⚔'); sfx('crit'); }
+    }
+  },
+
+  fighting() { return this.state === 'fighting'; },
+  peer() { return this.fighting() ? Net.remotes[this.peerId] : null; },
+
+  // ---- attacker side: my swings/spells connecting with my opponent ----
+  hitPeer(mult) {
+    const r = this.peer();
+    if (!r) return;
+    const { dmg, crit } = playerDamageRoll(mult);
+    Net.send({ t: 'duelhit', to: this.peerId, dmg });
+    if (G.settings.dmgNums) floater(r.x, r.y - 22, dmg, crit ? '#ffe14a' : '#ff9a9a', crit);
+    spawnParticles(r.x, r.y - 10, crit ? 10 : 5, '#ff7a5a', 90, 0.35);
+    sfx(crit ? 'crit' : 'hit');
+  },
+  tryMelee(sk, aim) {
+    const r = this.peer();
+    if (!r) return;
+    const p = G.player;
+    const d = dist(p.x, p.y, r.x, r.y);
+    if (d > sk.range + 12) return;
+    let da = Math.atan2(r.y - p.y, r.x - p.x) - aim;
+    while (da > Math.PI) da -= Math.PI * 2;
+    while (da < -Math.PI) da += Math.PI * 2;
+    if (Math.abs(da) < sk.arc / 2) this.hitPeer(sk.mult);
+  },
+  tryNova(sk) {
+    const r = this.peer();
+    if (r && dist(G.player.x, G.player.y, r.x, r.y) < sk.range + 14) this.hitPeer(sk.mult);
+  },
+
+  // ---- defender side ----
+  takeHit(dmg) {
+    const p = G.player;
+    if (p.dead) return;
+    if (p.rollT > 0 || p.dashT > 0) {   // dodged!
+      floater(p.x, p.y - 26, 'DODGED', '#8fd4ff');
+      return;
+    }
+    const st = pStat(p);
+    const final = Math.max(1, Math.round(dmg * (0.9 + Math.random() * 0.2) - st.def));
+    p.hp -= final;
+    p.hurtT = 0.3;
+    if (G.settings.dmgNums) floater(p.x, p.y - 26, '-' + final, '#ff6a5a');
+    G.shake = Math.max(G.shake, 0.18);
+    sfx('hurt');
+    if (p.hp <= st.maxHp * 0.1) {
+      p.hp = Math.max(1, Math.round(st.maxHp * 0.25));   // yield with dignity, not death
+      Net.send({ t: 'duelyield', to: this.peerId, winnerName: this.peerName, loserName: p.name });
+      chat('sys', `⚔ You yield! ${this.peerName} wins the duel.`);
+      questBanner('⚔ DEFEAT');
+      this.reset();
+    }
+  },
+
+  reset(msg) {
+    this.peerId = null;
+    this.peerName = null;
+    this.state = 'none';
+    if (msg) chat('sys', msg);
+  },
 };
 
 function drawRemote(ctx, r, cam) {

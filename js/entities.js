@@ -22,7 +22,7 @@ function makePlayer(cls, name) {
     rollT: 0, rollAng: 0, rollCd: 0,
     combatT: 0, dead: false, respawnT: 0,
     kills: {}, playTime: 0,
-    ach: {}, counters: { elites: 0, fish: 0 },
+    ach: {}, counters: { elites: 0, fish: 0, duelWins: 0 },
   };
 }
 

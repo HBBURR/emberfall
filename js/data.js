@@ -233,6 +233,7 @@ const ACHIEVEMENTS = {
   chest_all:   { name: 'Treasure Hunter',       icon: '🗝️', desc: 'Open all 8 treasure chests.' },
   fish5:       { name: 'Gone Fishing',          icon: '🎣', desc: 'Catch 5 fish.' },
   rich:        { name: 'Gold Hoarder',          icon: '🪙', desc: 'Hold 500 gold at once.' },
+  duelist:     { name: 'Duelist',               icon: '🤺', desc: 'Win 3 duels against other players.' },
   warden:      { name: 'Dawnbringer',           icon: '⚜️', desc: 'Defeat the Blightroot Warden.' },
 };
 

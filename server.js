@@ -240,7 +240,8 @@ function handleMessage(client, m) {
 }
 
 const RELAY_TYPES = new Set(['pdmg', 'ekill', 'ehit', 'eproj', 'esnap', 'esummon', 'gift',
-  'tradereq', 'tradeacc', 'tradedec', 'tradeoffer', 'tradeok', 'tradecancel']);
+  'tradereq', 'tradeacc', 'tradedec', 'tradeoffer', 'tradeok', 'tradecancel',
+  'duelreq', 'duelacc', 'dueldec', 'duelhit', 'duelyield', 'duelcancel']);
 
 function authorityId() {
   let min = null;

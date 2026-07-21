@@ -217,6 +217,7 @@ function update(dt) {
   updateFishing(dt);
   updateWeather(dt);
   Net.tick(dt);
+  Duel.tick(dt);
   // hold-to-attack
   if (G.mouse.down && !anyPanelOpen()) useSkill(0);
   // camera

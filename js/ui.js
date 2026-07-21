@@ -344,7 +344,7 @@ function refreshPanels() {
       (st.sets.dawn >= 2 ? `<div style="color:#ffe14a">☀️ Dawn set (${st.sets.dawn} pc): +8 Attack, +8 Defense, +8% Crit</div>` : '') +
       `<div>Experience: <b>${p.level >= MAX_LEVEL ? 'MAX' : p.xp + ' / ' + xpNeed(p.level)}</b></div>` +
       `<div>Gold: <b style="color:#ffd700">${p.gold}</b></div>` +
-      `<div style="border-top:1px solid #3a3421;margin-top:8px;padding-top:8px">Monsters slain: <b>${totKills}</b> &nbsp; Elites: <b>${p.counters.elites}</b> &nbsp; Fish caught: <b>${p.counters.fish}</b> &nbsp; Time: <b>${mins}m</b></div>` +
+      `<div style="border-top:1px solid #3a3421;margin-top:8px;padding-top:8px">Monsters slain: <b>${totKills}</b> &nbsp; Elites: <b>${p.counters.elites}</b> &nbsp; Duel wins: <b>${p.counters.duelWins || 0}</b> &nbsp; Fish: <b>${p.counters.fish}</b> &nbsp; Time: <b>${mins}m</b></div>` +
       `<div>Quests completed: <b>${QUESTS.filter(q => qState(q.id).state === 'turned').length} / ${QUESTS.length}</b></div>` +
       `<div style="border-top:1px solid #3a3421;margin-top:8px;padding-top:8px">Achievements (${Object.keys(p.ach).length}/${Object.keys(ACHIEVEMENTS).length}):</div>` +
       `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">` +
@@ -505,15 +505,28 @@ function wireTradePanel() {
 }
 
 let _tradeAskTO = null;
-function showTradeAsk(name, onYes, onNo) {
+function showAsk(html, onYes, onNo) {
   const el = $('tradeAsk');
-  $('tradeAskText').innerHTML = `💱 <b style="color:#ffb84a">${name}</b> wants to trade with you.`;
+  $('tradeAskText').innerHTML = html;
   el.classList.remove('hidden');
   const done = fn => () => { el.classList.add('hidden'); clearTimeout(_tradeAskTO); fn(); };
   $('tradeAskYes').onclick = done(onYes);
   $('tradeAskNo').onclick = done(onNo);
   clearTimeout(_tradeAskTO);
   _tradeAskTO = setTimeout(done(onNo), 20000);   // auto-decline after 20s
+}
+function showTradeAsk(name, onYes, onNo) {
+  showAsk(`💱 <b style="color:#ffb84a">${name}</b> wants to trade with you.`, onYes, onNo);
+}
+
+// big center-screen duel countdown
+function flashDuel(text) {
+  const el = $('levelFlash');
+  el.textContent = text;
+  el.style.color = '#ff8a6a';
+  el.style.opacity = 1;
+  clearTimeout(G._lvTO);
+  G._lvTO = setTimeout(() => { el.style.opacity = 0; el.style.color = ''; }, 900);
 }
 
 // give something to one of the townsfolk — they remember their manners
@@ -897,6 +910,7 @@ function openCtxMenu(hit, cx, cy) {
       chat('player', `👋 waves at ${r.name}!`, p.name);
       Net.sendChat(`👋 waves at ${r.name}!`);
     });
+    add('⚔️ Duel', () => Duel.request(r));
     add('💱 Trade', () => Trade.request(r));
     add('🎁 Give item', () => openGiftMenu(r));
     add('ℹ️ Inspect', () => chat('sys', `${r.name} — Level ${r.level} ${CLASSES[r.cls].name} · a living adventurer.`));
