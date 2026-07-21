@@ -185,6 +185,38 @@ const Auth = {
       }
       wrap.appendChild(d);
     }
+    // a guest hero lives on this device? offer to adopt it into the account
+    const old = $('csImport');
+    if (old) old.remove();
+    const guestSave = loadGame();
+    const firstEmpty = [0, 1, 2].find(s => !this.chars[s]);
+    if (guestSave && firstEmpty !== undefined && !Object.values(this.chars).some(c => c && c.name === guestSave.name)) {
+      const btn = document.createElement('button');
+      btn.id = 'csImport';
+      btn.className = 'menuBtn';
+      btn.style.cssText = 'width:auto;padding:9px 26px;margin-top:16px;';
+      btn.textContent = `⬆ Import guest hero: ${guestSave.name} (Lv ${guestSave.level} ${CLASSES[guestSave.cls].name})`;
+      btn.onclick = () => this.importGuest(guestSave, firstEmpty);
+      $('charSelect').insertBefore(btn, $('csFoot'));
+    }
+  },
+
+  // adopt a guest-mode hero into an account slot (progress comes with it)
+  async importGuest(save, slot) {
+    // claim the hero's name if possible; only a conflict with ANOTHER account blocks the import
+    const r = await this.api('/api/claimname', { user: this.user, token: this.token, name: save.name });
+    if (!r.ok && String(r.error || '').includes('taken')) {
+      chat('sys', `⚠ Could not import — the name "${save.name}" is claimed by another account.`);
+      const btn = $('csImport');
+      if (btn) btn.textContent = `✖ "${save.name}" is taken by another account`;
+      return;
+    }
+    this.chars[slot] = save;
+    this.saveLocal();
+    await this.api('/api/savechar', { user: this.user, token: this.token, slot, data: save });
+    try { localStorage.removeItem('emberfall_save_v1'); } catch (e) {}   // it lives in the account now
+    sfx('quest');
+    this.showCharSelect();
   },
 
   // animated dolls on the select cards (called from the title render loop)
