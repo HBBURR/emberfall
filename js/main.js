@@ -23,7 +23,11 @@ function init() {
   wireTradePanel();
   requestAnimationFrame(loop);
   setInterval(saveGame, 15000);
-  window.addEventListener('beforeunload', saveGame);
+  window.addEventListener('beforeunload', () => {
+    if (!G.player || G.state === 'title') return;
+    const data = saveGame();
+    if (data) Auth.beaconSave(data);   // reliable last-moment sync to the realm
+  });
 }
 
 function resize() {
@@ -50,22 +54,11 @@ function setupTitle() {
     };
     row.appendChild(d);
   }
-  const save = loadGame();
-  if (save) {
-    const cb = $('contBtn');
-    cb.classList.remove('hidden');
-    cb.textContent = `Continue: ${save.name} (Lv ${save.level} ${CLASSES[save.cls].name})`;
-    cb.onclick = () => { initAudio(); applySave(save); enterWorld(true); };
-  }
   $('playBtn').onclick = () => {
-    initAudio();
     const name = $('nameInput').value.trim() || 'Shardbearer';
-    G.player = makePlayer(selClass, name);
-    G.quests = {};
-    G.bossDead = false;
-    spawnAllEnemies();
-    enterWorld(false);
+    Auth.forgeHero(selClass, name);
   };
+  Auth.init();
 }
 
 function enterWorld(fromSave) {
@@ -203,6 +196,7 @@ function loop(t) {
     render();
   } else if (G.state === 'title') {
     renderTitleBG();
+    Auth.tickDolls();
   }
 }
 

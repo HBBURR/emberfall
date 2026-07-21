@@ -26,9 +26,98 @@ const MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon',
 };
 
+// ---------------- Accounts (persistent, salted+hashed passwords) ----------------
+const ACCOUNTS_FILE = path.join(ROOT, 'accounts.json');
+let accounts = { _secret: crypto.randomBytes(16).toString('hex'), users: {} };
+try {
+  const loaded = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'));
+  if (loaded && loaded.users) accounts = loaded;
+} catch (e) {}
+let accDirty = false;
+setInterval(() => {
+  if (!accDirty) return;
+  accDirty = false;
+  fs.writeFile(ACCOUNTS_FILE, JSON.stringify(accounts), () => {});
+}, 3000);
+
+function hashPass(pass, salt) { return crypto.scryptSync(String(pass), salt, 64).toString('hex'); }
+// stateless session token: survives server restarts, invalidated by password change
+function tokenFor(key) {
+  const u = accounts.users[key];
+  return crypto.createHash('sha256').update(key + ':' + u.hash.slice(0, 16) + ':' + accounts._secret).digest('hex');
+}
+function validToken(key, token) {
+  const u = accounts.users[key];
+  return !!u && typeof token === 'string' && token === tokenFor(key);
+}
+
+// light per-IP rate limit on auth endpoints
+const ipHits = new Map();
+function rateLimited(ip) {
+  const now = Date.now();
+  const h = ipHits.get(ip) || { n: 0, ts: now };
+  if (now - h.ts > 300000) { h.n = 0; h.ts = now; }
+  h.n++;
+  ipHits.set(ip, h);
+  return h.n > 30;
+}
+
+function handleApi(req, res, urlPath) {
+  const chunks = [];
+  let size = 0;
+  req.on('data', c => { size += c.length; if (size > 65536) req.destroy(); else chunks.push(c); });
+  req.on('end', () => {
+    let body = {};
+    try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch (e) {}
+    const j = obj => { res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
+    const ip = req.socket.remoteAddress || '?';
+    const user = String(body.user || '').trim();
+    const key = user.toLowerCase();
+
+    if (urlPath === '/api/register') {
+      if (rateLimited(ip)) return j({ ok: false, error: 'Slow down a little — try again in a few minutes.' });
+      if (!/^[a-zA-Z0-9_]{3,14}$/.test(user)) return j({ ok: false, error: 'Username: 3–14 letters, numbers, or _' });
+      if (String(body.pass || '').length < 4) return j({ ok: false, error: 'Password must be at least 4 characters.' });
+      if (accounts.users[key]) return j({ ok: false, error: 'That name is already taken.' });
+      const salt = crypto.randomBytes(12).toString('hex');
+      accounts.users[key] = { user, salt, hash: hashPass(body.pass, salt), chars: {}, created: Date.now() };
+      accDirty = true;
+      log(`account created: ${user}`);
+      return j({ ok: true, token: tokenFor(key), user, chars: {} });
+    }
+    if (urlPath === '/api/login') {
+      if (rateLimited(ip)) return j({ ok: false, error: 'Slow down a little — try again in a few minutes.' });
+      const u = accounts.users[key];
+      if (!u) return j({ ok: false, error: 'no_account' });
+      if (hashPass(body.pass, u.salt) !== u.hash) return j({ ok: false, error: 'Wrong password.' });
+      u.lastLogin = Date.now();
+      accDirty = true;
+      return j({ ok: true, token: tokenFor(key), user: u.user, chars: u.chars || {} });
+    }
+    if (urlPath === '/api/session') {
+      const u = accounts.users[key];
+      if (!u || !validToken(key, body.token)) return j({ ok: false, error: 'no_session' });
+      return j({ ok: true, user: u.user, chars: u.chars || {} });
+    }
+    if (urlPath === '/api/savechar') {
+      const u = accounts.users[key];
+      if (!u || !validToken(key, body.token)) return j({ ok: false, error: 'no_session' });
+      const slot = body.slot | 0;
+      if (slot < 0 || slot > 2 || typeof body.data !== 'object') return j({ ok: false, error: 'bad_request' });
+      if (JSON.stringify(body.data).length > 60000) return j({ ok: false, error: 'save_too_large' });
+      u.chars[slot] = body.data;
+      accDirty = true;
+      return j({ ok: true });
+    }
+    j({ ok: false, error: 'unknown_endpoint' });
+  });
+}
+
 // ---------------- HTTP: static game files ----------------
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent(req.url.split('?')[0]);
+  if (req.method === 'POST' && urlPath.startsWith('/api/')) { handleApi(req, res, urlPath); return; }
+  if (urlPath === '/accounts.json' || urlPath === '/leaderboard.json') { res.writeHead(403); res.end(); return; }
   let file = path.normalize(path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath));
   if (!file.startsWith(ROOT)) { res.writeHead(403); res.end(); return; }
   fs.readFile(file, (err, data) => {

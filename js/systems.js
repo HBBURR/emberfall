@@ -751,8 +751,13 @@ function saveGame() {
     gatherTaken: G.gatherNodes.map(g => g.taken > 0),
     chestsOpen: G.chests.map(c => c.open),
   };
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+  // guests save to this device; account heroes also sync to the realm server
+  if (!Auth.loggedIn()) {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  Auth.onSaved(data);
   upsertLocalBoard();
+  return data;
 }
 function loadGame() {
   try {
