@@ -31,6 +31,7 @@ const World = {
 
   regionAt(px, py) {
     const tx = px / TILE, ty = py / TILE;
+    if (tx >= 9 && tx <= 39 && ty >= 105) return 'crypt';
     if (dist(tx, ty, 70, 111) < 17) return 'village';
     if (tx > 99 && ty > 36 && ty < 94) return 'cave';
     if (ty < 36) return 'ruins';
@@ -39,7 +40,7 @@ const World = {
   },
   regionName(r) {
     return { village: 'Havenbrook Village', cave: 'The Ember Caves', ruins: 'The Ashen Ruins',
-             forest: 'The Whisperwood', meadow: 'Southmeadow' }[r];
+             forest: 'The Whisperwood', meadow: 'Southmeadow', crypt: 'The Sunken Crypt' }[r];
   },
 
   gen() {
@@ -117,6 +118,42 @@ const World = {
       const x = Math.round(70 + Math.cos(ang) * 10), y = Math.round(15 + Math.sin(ang) * 8);
       this.set(x, y, 5);
     }
+    // ---- the Sunken Crypt (Act 2 dungeon, southwest underdeep) ----
+    for (let y = 106; y < 133; y++) for (let x = 10; x < 39; x++) {
+      const t = this.t(x, y);
+      if (t === 2 || t === 3) continue;              // keep the ocean border
+      this.set(x, y, 4);                              // stone floor
+      if (x === 10 || x === 38 || y === 106 || y === 132) this.set(x, y, 5);
+    }
+    // flooded channels with bridge gaps
+    for (let y = 110; y < 129; y++) {
+      if (y === 118 || y === 119) continue;
+      if (this.t(17, y) === 4) this.set(17, y, 2);
+      if (this.t(18, y) === 4) this.set(18, y, 2);
+      if (this.t(30, y) === 4) this.set(30, y, 2);
+      if (this.t(31, y) === 4) this.set(31, y, 2);
+    }
+    // pillars
+    for (const [px2, py2] of [[14, 114], [22, 112], [34, 114], [14, 122], [34, 122], [22, 120]])
+      if (this.t(px2, py2) === 4) this.set(px2, py2, 5);
+    // boss chamber: cleared circle with a rock ring, opening north
+    this.blob(24, 127, 5.5, 4, R, true);
+    for (let a = 0; a < 40; a++) {
+      const ang = a / 40 * Math.PI * 2;
+      if (ang > 4.0 && ang < 5.4) continue;           // north opening
+      const x = Math.round(24 + Math.cos(ang) * 6.5), y = Math.round(127 + Math.sin(ang) * 5);
+      if (this.t(x, y) === 4 || this.t(x, y) === 2) this.set(x, y, 5);
+    }
+    // portals: pond shallows ⇅ crypt entry
+    G.portals = [
+      { x: 93 * TILE + 16, y: 101 * TILE + 16, tx: 25 * TILE + 16, ty: 110 * TILE + 16,
+        label: 'Descend into the Sunken Crypt', minLevel: 8, down: true },
+      { x: 24 * TILE + 16, y: 108 * TILE + 16, tx: 94 * TILE + 16, ty: 102 * TILE + 16,
+        label: 'Climb back to Southmeadow', minLevel: 0, down: false },
+    ];
+    // make sure both portal mouths are walkable
+    this.set(93, 101, 0); this.set(24, 108, 4); this.set(25, 110, 4); this.set(94, 102, 0);
+
     // village clearing
     for (let y = 94; y < 128; y++) for (let x = 53; x < 88; x++) {
       if (dist(x, y, 70, 111) < 17 && this.t(x, y) === 6) this.set(x, y, 0);

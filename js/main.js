@@ -247,8 +247,8 @@ function update(dt) {
   if (isNight && region === 'forest' && Math.random() < dt * 6) {
     G.particles.push({ x: G.camera.x + Math.random() * G.W, y: G.camera.y + Math.random() * G.H, vx: (Math.random() - 0.5) * 20, vy: (Math.random() - 0.5) * 20, life: 2.5, maxLife: 2.5, color: '#d8ff8a', size: 1.8, firefly: true });
   }
-  if ((region === 'cave' || region === 'ruins') && Math.random() < dt * 4) {
-    G.particles.push({ x: G.camera.x + Math.random() * G.W, y: G.camera.y + G.H, vx: (Math.random() - 0.5) * 12, vy: -30 - Math.random() * 30, life: 3, maxLife: 3, color: region === 'cave' ? '#ff9a4a' : '#c98aff', size: 1.6 });
+  if ((region === 'cave' || region === 'ruins' || region === 'crypt') && Math.random() < dt * 4) {
+    G.particles.push({ x: G.camera.x + Math.random() * G.W, y: G.camera.y + G.H, vx: (Math.random() - 0.5) * 12, vy: -30 - Math.random() * 30, life: 3, maxLife: 3, color: region === 'cave' ? '#ff9a4a' : region === 'crypt' ? '#8ad4e8' : '#c98aff', size: 1.6 });
   }
 }
 
@@ -257,6 +257,7 @@ function render() {
   const ctx = G.ctx, cam = G.camera;
   ctx.clearRect(0, 0, G.W, G.H);
   World.draw(ctx, cam);
+  drawPortals(ctx, cam);
   drawGatherNodes(ctx, cam);
   drawChests(ctx, cam);
   drawGroundItems(ctx, cam);
@@ -480,7 +481,7 @@ function drawWeather(ctx, cam) {
   const w = G.weather;
   if (!w) return;
   const region = World.regionAt(G.player.x, G.player.y);
-  if (region === 'cave') return;
+  if (region === 'cave' || region === 'crypt') return;
   // drifting cloud shadows (fade out at night — the lighting overlay owns darkness then)
   const cloudA = 0.09 * (1 - darknessLevel() / 0.78);
   if (cloudA > 0.01) {
@@ -533,13 +534,16 @@ function drawLighting(ctx, cam) {
   const region = World.regionAt(p.x, p.y);
   let dark = darknessLevel();
   if (region === 'cave') dark = Math.max(dark, 0.62);
+  if (region === 'crypt') dark = Math.max(dark, 0.68);
   if (region === 'ruins') dark = Math.max(dark * 0.9, 0.25);
   if (dark < 0.03) {
     // subtle warm tint at dawn/dusk even when not dark
     return;
   }
   lightX.clearRect(0, 0, G.W, G.H);
-  const nightCol = region === 'ruins' ? `rgba(40,10,40,${dark})` : `rgba(8,10,34,${dark})`;
+  const nightCol = region === 'ruins' ? `rgba(40,10,40,${dark})`
+    : region === 'crypt' ? `rgba(4,22,30,${dark})`
+    : `rgba(8,10,34,${dark})`;
   lightX.fillStyle = nightCol;
   lightX.fillRect(0, 0, G.W, G.H);
   lightX.globalCompositeOperation = 'destination-out';
@@ -569,6 +573,8 @@ function drawLighting(ctx, cam) {
   for (const g of G.gatherNodes) if (g.taken <= 0) light(g.x - cam.x, g.y - cam.y, 60, 0.6);
   for (const c of G.chests) if (!c.open) light(c.x - cam.x, c.y - cam.y, 46, 0.5);
   for (const g of G.groundItems) if (ITEMS[g.id].rar >= 1) light(g.x - cam.x, g.y - cam.y, 44, 0.55);
+  for (const pt of G.portals) light(pt.x - cam.x, pt.y - cam.y, 95, 0.7);
+  for (const e of G.enemies) if (!e.dead && (e.kind === 'maw' || e.kind === 'drowned')) light(e.x - cam.x, e.y - cam.y, e.kind === 'maw' ? 150 : 60, 0.5);
   for (const pr of G.projectiles) light(pr.x - cam.x, pr.y - cam.y, 55, 0.7);
   for (const e of G.enemies) {
     if (e.dead) continue;

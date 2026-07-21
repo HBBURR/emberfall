@@ -51,7 +51,10 @@ walks beside you, and talks in real chat (press **Enter** to type).
 - **3 classes** — Warrior, Mage, Ranger — each with 4 skills unlocking at levels 1/2/5/8.
 - **10-quest campaign** to level 10: from wolf culls outside Havenbrook, through the Whisperwood
   and the Ember Caves, past the miniboss **Gloomfang**, to the multi-phase **Blightroot Warden**.
-- **5 zones** on one seamless 140×140 map with day/night cycle and dynamic 2D lighting.
+- **6 zones** on one seamless 140×140 map with day/night cycle and dynamic 2D lighting —
+  including **the Sunken Crypt**, an endgame dungeon beneath the meadow pond (level 8+):
+  flooded halls of the Drowned, epic-tier chests, and the **Maw of the Deep**, a level-12
+  boss with spread volleys and phase summons. Post-campaign quest: *Echoes Below*.
 - **Loot & economy** — 4 rarity tiers, **5 equipment slots** (weapon, armor, helm, boots, trinket),
   potions, a shop that buys and sells, 8 hidden treasure chests, and gold-dropping elites.
 - **Character & bag screen** (`I`) — animated paper-doll with equipment columns, 20-slot bag,

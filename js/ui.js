@@ -727,6 +727,7 @@ function updateHint() {
     el.classList.remove('hidden');
     el.textContent = t.kind === 'node' ? `[E] Gather ${ITEMS[t.node.item].name}`
       : t.kind === 'chest' ? '[E] Open Treasure Chest'
+      : t.kind === 'portal' ? `[E] ${t.portal.label}${G.player.level < t.portal.minLevel ? ' (Lv ' + t.portal.minLevel + '+)' : ''}`
       : `[E] Talk to ${t.npc.name}`;
   } else if (canFish()) {
     el.classList.remove('hidden');

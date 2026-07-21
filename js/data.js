@@ -23,7 +23,7 @@ const G = {
   quests: {},                    // id -> {state:'avail'|'active'|'done'|'turned', progress}
   shake: 0,
   zoneShown: '',
-  gatherNodes: [], chests: [], groundItems: [],
+  gatherNodes: [], chests: [], groundItems: [], portals: [],
   bossDead: false,
   audio: null,
   paused: false,
@@ -127,6 +127,7 @@ const ITEMS = {
   wolf_charm:  { name: 'Wolf-Fang Charm', icon: '🦷', slot: 'trinket', rar: 1, crit: 6,  price: 70, desc: '+6% Critical chance.' },
   gloom_eye:   { name: 'Eye of Gloomfang',icon: '👁️', slot: 'trinket', rar: 2, crit: 10, spd: 10, price: 260, desc: '+10% Crit, +10 Move speed.' },
   shard_dawn:  { name: 'Shard of the Dawn',icon:'🌟', slot: 'trinket', rar: 3, crit: 15, spd: 18, set: 'dawn', price: 999, desc: '+15% Crit, +18 Move speed. It is warm to the touch.' },
+  depth_pearl: { name: 'Pearl of the Depths', icon: '🫧', slot: 'trinket', rar: 3, crit: 12, hp: 60, spd: 8, price: 999, desc: '+12% Crit, +60 Health, +8 Speed. It remembers the dark below the pond.' },
 };
 
 // ---------------- Enemies ----------------
@@ -138,6 +139,8 @@ const ENEMY_TYPES = {
   slime:    { name: 'Ember Slime',      lv: 5,  hp: 95,   dmg: 14, xp: 60,  speed: 52,  gold: [7, 14],  aggroR: 140, kind: 'slime',   scale: 1.0, drops: [['ember_shard', .35], ['hp_potion2', .09], ['iron_helm', .04]] },
   cultist:  { name: 'Blightroot Cultist',lv: 7, hp: 130,  dmg: 17, xp: 88,  speed: 82,  gold: [10, 20], aggroR: 210, kind: 'cultist', scale: 1.0, ranged: true, drops: [['blight_dust', .45], ['hp_potion2', .12], ['ember_helm', .05], ['gloom_eye', .02]] },
   gloomfang:{ name: 'Gloomfang',        lv: 6,  hp: 480,  dmg: 21, xp: 380, speed: 122, gold: [60, 90], aggroR: 240, kind: 'wolf',    scale: 1.8, boss: true, drops: [['gloom_eye', 1]] },
+  drowned:  { name: 'The Drowned',      lv: 9,  hp: 230,  dmg: 22, xp: 120, speed: 74,  gold: [15, 28], aggroR: 170, kind: 'drowned', scale: 1.0, drops: [['blight_dust', .35], ['hp_potion2', .15], ['dawn_crown', .015]] },
+  maw:      { name: 'Maw of the Deep',  lv: 12, hp: 2600, dmg: 34, xp: 999, speed: 70,  gold: [300, 450], aggroR: 280, kind: 'maw',  scale: 2.6, boss: true, ranged: true, drops: [['depth_pearl', 1]] },
   warden:   { name: 'The Blightroot Warden', lv: 10, hp: 1500, dmg: 26, xp: 900, speed: 62, gold: [200, 300], aggroR: 300, kind: 'warden', scale: 2.4, boss: true, ranged: true, drops: [['shard_dawn', 1], ['dawn_plate', 1]] },
 };
 
@@ -202,6 +205,11 @@ const QUESTS = [
     text: 'A thousand years ago we buried the Dawn to starve the Blight — and it cost us everything. You carry the last Shard. Drive it into the Warden\'s heart, and the long night ends. Go, Shardbearer. Emberfall marches with you.',
     done: 'The light... I can feel it from here. It is done. IT IS DONE! You have given Emberfall its dawn, Shardbearer. Songs will carry your name for a thousand years.',
     xp: 700, gold: 250, item: 'wardenbane', prereq: 'q9' },
+  { id: 'q11', title: 'Echoes Below', giver: 'maren', type: 'kill', target: 'maw', count: 1,
+    desc: 'Something vast stirs in the Sunken Crypt beneath the meadow pond. Descend the drowned stair (level 8+) and end it.',
+    text: 'The Warden is ash, yet the water still whispers. Divers speak of a drowned crypt beneath the pond — and a hunger older than the Blight itself. A stair opened in the shallows the night the Dawn returned. You are the only blade I trust in the dark, Shardbearer.',
+    done: 'The pond lies still at last. You have out-fought legend itself. Emberfall has no greater honor left to give — only its gratitude, and this.',
+    xp: 800, gold: 500, prereq: 'q10' },
 ];
 
 // ---------------- NPCs ----------------
@@ -230,7 +238,7 @@ const ACHIEVEMENTS = {
   level5:      { name: 'Seasoned',              icon: '⭐', desc: 'Reach level 5.' },
   level10:     { name: 'Shardbearer Ascendant', icon: '🌟', desc: 'Reach level 10.' },
   elite10:     { name: 'Elite Hunter',          icon: '👑', desc: 'Slay 10 elite monsters.' },
-  chest_all:   { name: 'Treasure Hunter',       icon: '🗝️', desc: 'Open all 8 treasure chests.' },
+  chest_all:   { name: 'Treasure Hunter',       icon: '🗝️', desc: 'Open every treasure chest in the world.' },
   fish5:       { name: 'Gone Fishing',          icon: '🎣', desc: 'Catch 5 fish.' },
   rich:        { name: 'Gold Hoarder',          icon: '🪙', desc: 'Hold 500 gold at once.' },
   duelist:     { name: 'Duelist',               icon: '🤺', desc: 'Win 3 duels against other players.' },
@@ -243,12 +251,14 @@ const CHEST_SPOTS = [
   [52, 50, 2], [85, 78, 2],             // Whisperwood
   [106, 45, 3], [128, 85, 3],           // Ember Caves
   [38, 12, 4], [100, 10, 4],            // Ashen Ruins
+  [14, 111, 5], [34, 129, 5],           // Sunken Crypt (epic tier)
 ];
 const CHEST_LOOT = {
   1: ['hp_potion', 'mp_potion', 'leather_cap', 'worn_boots'],
   2: ['hp_potion2', 'mp_potion', 'wolf_charm', 'iron_helm', 'scout_boots'],
   3: ['hp_potion2', 'soldier_wpn', 'leather_vest', 'ember_helm'],
   4: ['hp_potion2', 'ember_wpn', 'ember_mail', 'ember_treads', 'dawn_crown', 'dawn_striders'],
+  5: ['dawn_crown', 'dawn_striders', 'dawn_plate', 'ember_wpn', 'hp_potion2'],
 };
 
 // ---------------- Fake MMO flavor ----------------
@@ -270,6 +280,8 @@ const CHAT_LINES = [
   ['Petra_Swift', 'kael is standing in the same spot again. scouts these days'],
   ['Vex', 'cultists hit like a cart of bricks, bring potions'],
   ['Tumbleroot', 'found a really pretty pond east of the meadow'],
+  ['DrekTheBold', 'do NOT go down the pond stairs under level 8. trust me'],
+  ['Sylvarra', 'the maw ate our whole party. 10/10 would descend again'],
 ];
 
 // utility RNG (seeded)

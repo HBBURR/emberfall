@@ -103,8 +103,9 @@ const Net = {
       }
     } else if (m.t === 'esummon') {
       if (this.isAuth()) return;
-      const w = G.enemies.find(en => en.type === 'warden');
-      wardenSummonAt(w ? w.x : m.pts[0][0], w ? w.y : m.pts[0][1], m.pts);
+      const bossType = m.stype === 'drowned' ? 'maw' : 'warden';
+      const w = G.enemies.find(en => en.type === bossType);
+      bossSummonAt(w ? w.x : m.pts[0][0], w ? w.y : m.pts[0][1], m.pts, m.stype);
     } else if (m.t === 'join') {
       this.addRemote(m);
       chat('sys', `⚔ ${m.name} has entered Emberfall!`);

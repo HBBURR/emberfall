@@ -156,7 +156,9 @@ function spawnAllEnemies() {
   put('bat', 11, 102, 120, 40, 90, [124, 50, 9]);
   put('slime', 9, 112, 130, 56, 90, [124, 50, 9]);
   put('cultist', 11, 36, 104, 8, 32, [70, 15, 11]);
+  put('drowned', 8, 12, 37, 108, 126, [24, 127, 7]);
   G.enemies.push(spawnEnemy('gloomfang', 124, 50));
+  G.enemies.push(spawnEnemy('maw', 24, 127));
   if (!G.bossDead) G.enemies.push(spawnEnemy('warden', 70, 14));
 }
 
@@ -191,10 +193,11 @@ function updateEnemy(e, dt) {
   const v = nearestVictim(e);
   const dp = v ? v.d : 1e9;
 
-  // warden boss: phase adds
-  if (e.type === 'warden' && v) {
-    if (e.hp < e.maxHp * 0.66 && e.phase < 1) { e.phase = 1; wardenSummon(e); }
-    if (e.hp < e.maxHp * 0.33 && e.phase < 2) { e.phase = 2; wardenSummon(e); }
+  // boss phases: summon adds at 66% / 33%
+  if ((e.type === 'warden' || e.type === 'maw') && v) {
+    const addType = e.type === 'warden' ? 'cultist' : 'drowned';
+    if (e.hp < e.maxHp * 0.66 && e.phase < 1) { e.phase = 1; bossSummon(e, addType); }
+    if (e.hp < e.maxHp * 0.33 && e.phase < 2) { e.phase = 2; bossSummon(e, addType); }
   }
 
   if (e.state === 'idle') {
@@ -226,7 +229,8 @@ function updateEnemy(e, dt) {
         if (!v2) { e.state = 'return'; return; }
         if (e.ranged) {
           const a2 = Math.atan2(v2.y - e.y, v2.x - e.x);
-          const n = e.type === 'warden' ? (e.phase >= 2 ? 8 : e.phase >= 1 ? 5 : 3) : 1;
+          const n = e.type === 'warden' ? (e.phase >= 2 ? 8 : e.phase >= 1 ? 5 : 3)
+                  : e.type === 'maw' ? (e.phase >= 1 ? 6 : 4) : 1;
           const ttl = e.type === 'warden' ? 1.9 : 1.2;   // ~500px / ~310px reach
           for (let i = 0; i < n; i++) {
             const sp = a2 + (n > 1 ? (i - (n - 1) / 2) * 0.28 : 0);
@@ -266,25 +270,26 @@ function netLerpEnemy(e, dt) {
   }
 }
 
-function wardenSummonAt(cx, cy, pts) {
+function bossSummonAt(cx, cy, pts, type) {
+  type = type || 'cultist';
   for (const [x, y] of pts) {
-    const s = spawnEnemy('cultist', 70, 15);
+    const s = spawnEnemy(type, 70, 15);
     s.x = x; s.y = y; s.homeX = x; s.homeY = y;
     s.state = 'chase'; s.summoned = true;
     G.enemies.push(s);
   }
-  chat('sys', '☠ The Warden calls its servants!');
-  spawnParticles(cx, cy, 30, '#9a5aff', 160, 0.8);
+  chat('sys', type === 'drowned' ? '🌊 The Maw calls the Drowned from the deep!' : '☠ The Warden calls its servants!');
+  spawnParticles(cx, cy, 30, type === 'drowned' ? '#5ac8d8' : '#9a5aff', 160, 0.8);
   G.shake = 0.5;
 }
-function wardenSummon(e) {
+function bossSummon(e, type) {
   const pts = [];
   for (let i = 0; i < 3; i++) {
     const a = Math.random() * 7;
     pts.push([Math.round(e.x + Math.cos(a) * 90), Math.round(e.y + Math.sin(a) * 90)]);
   }
-  wardenSummonAt(e.x, e.y, pts);
-  if (Net.connected) Net.send({ t: 'esummon', pts });
+  bossSummonAt(e.x, e.y, pts, type);
+  if (Net.connected) Net.send({ t: 'esummon', pts, stype: type });
 }
 
 // ---------------- NPCs & bots ----------------
@@ -629,6 +634,86 @@ function drawEnemy(ctx, e, cam) {
       ctx.fillStyle = `rgba(160,90,255,${0.6})`;
       ctx.beginPath(); ctx.arc(10, -8, 4 + Math.sin(G.time * 20) * 2, 0, 7); ctx.fill();
     }
+  } else if (e.kind === 'drowned') {
+    drawShadow(ctx, x, y + 14, 10);
+    ctx.translate(x, y - Math.abs(bob) * 0.4);
+    ctx.scale(e.facing, 1);
+    // waterlogged body, arms out
+    ctx.fillStyle = '#4a7a72';
+    ctx.beginPath(); ctx.roundRect(-8, -12, 16, 22, 5); ctx.fill();
+    ctx.fillStyle = '#3a5f5a';
+    ctx.fillRect(-8, -2, 16, 4);
+    // reaching arms
+    ctx.strokeStyle = '#4a7a72'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    const reach = Math.sin(e.walkT) * 2;
+    ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(15, -6 + reach); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6, -2); ctx.lineTo(14, 1 - reach); ctx.stroke();
+    // head, tilted
+    ctx.fillStyle = '#5a8a80';
+    ctx.beginPath(); ctx.arc(2, -18, 7, 0, 7); ctx.fill();
+    // kelp strands
+    ctx.strokeStyle = '#2a4f3a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-2, -24); ctx.quadraticCurveTo(-6, -18, -4, -10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(4, -23); ctx.quadraticCurveTo(8, -16, 6, -11); ctx.stroke();
+    // glowing eyes
+    const gl2 = Math.sin(G.time * 3 + e.x) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(120,240,255,${gl2})`;
+    ctx.fillRect(1, -20, 2.5, 2.5); ctx.fillRect(5.5, -20, 2.5, 2.5);
+    // drips
+    if (Math.random() < 0.04) spawnParticles(e.x, e.y, 1, '#7ac8d8', 15, 0.5, 60);
+  } else if (e.kind === 'maw') {
+    drawShadow(ctx, x, y + 26, 34);
+    ctx.translate(x, y + Math.sin(e.walkT * 0.6) * 3);
+    ctx.scale(e.facing, 1);
+    const gl = Math.sin(G.time * 2.5) * 0.5 + 0.5;
+    // abyssal aura
+    ctx.fillStyle = `rgba(60,180,210,${0.08 + gl * 0.07})`;
+    ctx.beginPath(); ctx.arc(0, -8, 52, 0, 7); ctx.fill();
+    // tail
+    ctx.fillStyle = '#1f4a52';
+    ctx.beginPath(); ctx.moveTo(-24, -6); ctx.quadraticCurveTo(-40, -14 + Math.sin(e.walkT) * 4, -44, -2);
+    ctx.quadraticCurveTo(-40, 4, -24, 2); ctx.fill();
+    // body
+    const bodyGrad = ctx.createLinearGradient(0, -32, 0, 14);
+    bodyGrad.addColorStop(0, '#2a6a74'); bodyGrad.addColorStop(1, '#143038');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath(); ctx.ellipse(-4, -8, 28, 22, 0, 0, 7); ctx.fill();
+    // dorsal spines
+    ctx.strokeStyle = '#1a3a40'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(-16 + i * 7, -26);
+      ctx.lineTo(-18 + i * 7, -36 - Math.sin(G.time * 2 + i) * 2); ctx.stroke();
+    }
+    // gaping jaw
+    const openJaw = e.windup > 0 ? 14 : 8 + Math.sin(G.time * 1.5) * 2;
+    ctx.fillStyle = '#0c1a20';
+    ctx.beginPath(); ctx.moveTo(8, -18); ctx.quadraticCurveTo(30, -14, 32, -4);
+    ctx.quadraticCurveTo(30, 6 + openJaw * 0.4, 8, 8 + openJaw * 0.3);
+    ctx.quadraticCurveTo(16, -4, 8, -18); ctx.fill();
+    // teeth
+    ctx.fillStyle = '#d8e8e0';
+    for (let i = 0; i < 5; i++) {
+      const tx2 = 12 + i * 4.2;
+      ctx.beginPath(); ctx.moveTo(tx2, -14 + i * 1.2); ctx.lineTo(tx2 + 1.6, -8 + i); ctx.lineTo(tx2 + 3.2, -13 + i * 1.2); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(tx2, 6 + openJaw * 0.25); ctx.lineTo(tx2 + 1.6, 0 + i * 0.5); ctx.lineTo(tx2 + 3.2, 6.5 + openJaw * 0.25); ctx.closePath(); ctx.fill();
+    }
+    // lure: stalk + glowing orb
+    ctx.strokeStyle = '#2a6a74'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(6, -28); ctx.quadraticCurveTo(18, -44, 30, -40 + Math.sin(G.time * 1.8) * 3); ctx.stroke();
+    ctx.fillStyle = `rgba(150,240,255,${0.25 + gl * 0.2})`;
+    ctx.beginPath(); ctx.arc(30, -40 + Math.sin(G.time * 1.8) * 3, 9 + gl * 3, 0, 7); ctx.fill();
+    ctx.fillStyle = `rgba(200,250,255,${0.8 + gl * 0.2})`;
+    ctx.beginPath(); ctx.arc(30, -40 + Math.sin(G.time * 1.8) * 3, 4, 0, 7); ctx.fill();
+    // eye
+    ctx.fillStyle = `rgba(180,250,255,${0.85})`;
+    ctx.beginPath(); ctx.arc(2, -16, 3.4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0c1a20';
+    ctx.beginPath(); ctx.arc(3, -16, 1.6, 0, 7); ctx.fill();
+    // fin
+    ctx.fillStyle = '#1f4a52';
+    ctx.beginPath(); ctx.moveTo(-6, 8); ctx.quadraticCurveTo(-2, 20, 8, 16); ctx.quadraticCurveTo(0, 10, -6, 8); ctx.fill();
+    // bubbles
+    if (Math.random() < 0.12) spawnParticles(e.x + (Math.random() - 0.5) * 40, e.y - 20, 1, '#a8e8f8', 18, 1.2, -40);
   } else if (e.kind === 'warden') {
     drawShadow(ctx, x, y + 30, 30);
     ctx.translate(x, y - Math.abs(Math.sin(e.walkT * 0.5)) * 3);
@@ -840,6 +925,38 @@ function drawChests(ctx, cam) {
       ctx.beginPath(); ctx.arc(x, y - 7, 2.2, 0, 7); ctx.fill();
       if (Math.random() < 0.02) spawnParticles(c.x + (Math.random() - 0.5) * 16, c.y - 10, 1, '#ffe98a', 24, 0.8, -40);
     }
+  }
+}
+
+// ---------------- Portals (crypt stairs) ----------------
+function drawPortals(ctx, cam) {
+  for (const pt of G.portals) {
+    const x = pt.x - cam.x, y = pt.y - cam.y;
+    if (x < -50 || y < -50 || x > G.W + 50 || y > G.H + 50) continue;
+    const gl = Math.sin(G.time * 2.2 + pt.x) * 0.5 + 0.5;
+    // glow
+    ctx.fillStyle = `rgba(90,200,220,${0.10 + gl * 0.12})`;
+    ctx.beginPath(); ctx.ellipse(x, y, 26 + gl * 4, 16, 0, 0, 7); ctx.fill();
+    // stone rim
+    ctx.fillStyle = '#4a4a54';
+    ctx.beginPath(); ctx.ellipse(x, y, 20, 12, 0, 0, 7); ctx.fill();
+    // dark stairwell
+    ctx.fillStyle = '#0a1418';
+    ctx.beginPath(); ctx.ellipse(x, y, 15, 8.5, 0, 0, 7); ctx.fill();
+    // steps
+    ctx.strokeStyle = 'rgba(120,200,220,.35)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(x, y + (pt.down ? i * 1.5 : -i * 1.5), 11 - i * 3.5, 6 - i * 2, 0, 0, 7);
+      ctx.stroke();
+    }
+    // direction marker
+    ctx.font = 'bold 12px Verdana';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(150,230,245,${0.6 + gl * 0.4})`;
+    ctx.fillText(pt.down ? '▼' : '▲', x, y - 18);
+    if (Math.random() < 0.03) spawnParticles(pt.x + (Math.random() - 0.5) * 24, pt.y, 1, '#8ad4e8', 20, 1, -35);
   }
 }
 

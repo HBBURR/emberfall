@@ -572,7 +572,26 @@ function nearestInteractable() {
     const d = dist(p.x, p.y, c.x, c.y);
     if (d < bd) { bd = d; best = { kind: 'chest', chest: c }; }
   }
+  for (const pt of G.portals) {
+    const d = dist(p.x, p.y, pt.x, pt.y);
+    if (d < bd) { bd = d; best = { kind: 'portal', portal: pt }; }
+  }
   return best;
+}
+
+function usePortal(pt) {
+  const p = G.player;
+  if (p.level < pt.minLevel) {
+    chat('sys', `⚠ You need level ${pt.minLevel} to survive what waits below.`);
+    floater(p.x, p.y - 30, 'Level ' + pt.minLevel + ' required!', '#e15b5b');
+    sfx('hurt');
+    return;
+  }
+  spawnParticles(p.x, p.y, 22, '#7ac8d8', 130, 0.6);
+  p.x = pt.tx; p.y = pt.ty;
+  G.target = null;
+  spawnParticles(p.x, p.y, 22, '#7ac8d8', 130, 0.6);
+  sfx('cast');
 }
 
 function gatherNode(g) {
@@ -589,6 +608,7 @@ function interact() {
   if (!t) { if (canFish()) startFishing(); return; }
   if (t.kind === 'node') { gatherNode(t.node); return; }
   if (t.kind === 'chest') { openChest(t.chest); return; }
+  if (t.kind === 'portal') { usePortal(t.portal); return; }
   openDialogue(t.npc);
 }
 
@@ -637,6 +657,11 @@ function entityAtScreen(sx, sy) {
     consider({ kind: 'node', node: g, x: g.x, y: g.y }, g.x, g.y,
       Math.abs(wx - g.x) < 14 && Math.abs(wy - g.y) < 18);
   }
+  for (const pt of G.portals) {
+    if (bd < 0) break;
+    consider({ kind: 'portal', portal: pt, x: pt.x, y: pt.y }, pt.x, pt.y,
+      Math.abs(wx - pt.x) < 20 && Math.abs(wy - pt.y) < 18);
+  }
   return best;
 }
 
@@ -648,6 +673,7 @@ function tryClickInteract(hit, cx, cy) {
   if (hit.kind === 'npc') { d < CLICK_RANGE ? openDialogue(hit.npc) : tooFar(); return true; }
   if (hit.kind === 'chest') { d < CLICK_RANGE ? openChest(hit.chest) : tooFar(); return true; }
   if (hit.kind === 'node') { d < CLICK_RANGE ? gatherNode(hit.node) : tooFar(); return true; }
+  if (hit.kind === 'portal') { d < CLICK_RANGE ? usePortal(hit.portal) : tooFar(); return true; }
   if (hit.kind === 'bot' || hit.kind === 'remote') { openCtxMenu(hit, cx, cy); return true; }  // people: show options
   return false;   // enemies, empty ground → normal attack
 }
