@@ -129,6 +129,10 @@ const Net = {
         chat('sys', `🎁 ${sender ? sender.name : 'A friend'} sent you ${itemLabel(m.item)}!`);
         sfx('quest');
       }
+    } else if (m.t === 'renamed') {
+      // we joined wearing someone's claimed name — the realm renamed us
+      G.player.name = m.name;
+      chat('sys', `⚠ That name belongs to another hero — the realm knows you as "${m.name}".`);
     } else if (m.t === 'chat') {
       chat('player', m.text, m.name, m.dev);
     } else if (m.t === 'leave') {

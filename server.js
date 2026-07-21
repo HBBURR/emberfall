@@ -49,6 +49,10 @@ try {
 } catch (e) {}
 if (DEV_SET.size) log(`dev accounts: ${[...DEV_SET].join(', ')}`);
 function isDev(key) { return DEV_SET.has(key); }
+// DEV_KEY (env or dev_key.txt): the secret required to register a reserved dev username.
+// This is what stops someone from grabbing a dev name after a free-tier realm reset.
+let DEV_KEY = String(process.env.DEV_KEY || '');
+try { if (!DEV_KEY) DEV_KEY = fs.readFileSync(path.join(ROOT, 'dev_key.txt'), 'utf8').trim(); } catch (e) {}
 
 function hashPass(pass, salt) { return crypto.scryptSync(String(pass), salt, 64).toString('hex'); }
 // stateless session token: survives server restarts, invalidated by password change
@@ -89,6 +93,9 @@ function handleApi(req, res, urlPath) {
       if (!/^[a-zA-Z0-9_]{3,14}$/.test(user)) return j({ ok: false, error: 'Username: 3–14 letters, numbers, or _' });
       if (String(body.pass || '').length < 4) return j({ ok: false, error: 'Password must be at least 4 characters.' });
       if (accounts.users[key]) return j({ ok: false, error: 'That name is already taken.' });
+      // reserved dev usernames need the secret key — even after a realm reset
+      if (isDev(key) && (!DEV_KEY || String(body.devkey || '') !== DEV_KEY))
+        return j({ ok: false, error: 'reserved' });
       const salt = crypto.randomBytes(12).toString('hex');
       accounts.users[key] = { user, salt, hash: hashPass(body.pass, salt), chars: {}, created: Date.now() };
       accDirty = true;
@@ -116,6 +123,25 @@ function handleApi(req, res, urlPath) {
       if (slot < 0 || slot > 2 || typeof body.data !== 'object') return j({ ok: false, error: 'bad_request' });
       if (JSON.stringify(body.data).length > 60000) return j({ ok: false, error: 'save_too_large' });
       u.chars[slot] = body.data;
+      // keep the hero-name registry current (first claim wins, restores re-claim)
+      accounts.names = accounts.names || {};
+      const nk = String(body.data.name || '').toLowerCase();
+      if (nk && !accounts.names[nk]) accounts.names[nk] = key;
+      accDirty = true;
+      return j({ ok: true });
+    }
+    if (urlPath === '/api/claimname') {
+      const u = accounts.users[key];
+      if (!u || !validToken(key, body.token)) return j({ ok: false, error: 'no_session' });
+      const hn = String(body.name || '').trim();
+      if (hn.length < 5 || hn.length > 14) return j({ ok: false, error: 'Hero names are 5–14 characters.' });
+      const nk = hn.toLowerCase();
+      accounts.names = accounts.names || {};
+      if (accounts.names[nk] && accounts.names[nk] !== key)
+        return j({ ok: false, error: 'That hero name is already taken.' });
+      if (isDev(nk) && !isDev(key))
+        return j({ ok: false, error: 'That name is reserved.' });
+      accounts.names[nk] = key;
       accDirty = true;
       return j({ ok: true });
     }
@@ -215,16 +241,30 @@ setInterval(() => {
 
 function handleMessage(client, m) {
   if (m.t === 'join') {
-    client.name = String(m.name || 'Adventurer').slice(0, 14);
+    let jname = String(m.name || 'Adventurer').slice(0, 14);
     client.cls = ['warrior', 'mage', 'ranger'].includes(m.cls) ? m.cls : 'warrior';
     client.level = m.level | 0;
     client.x = +m.x || 0; client.y = +m.y || 0;
     // dev status is token-verified so nobody can impersonate a dev by name
     client.dev = false;
+    let authedKey = null;
     if (m.auth && m.auth.user) {
       const akey = String(m.auth.user).toLowerCase();
-      if (validToken(akey, m.auth.token) && isDev(akey)) client.dev = true;
+      if (validToken(akey, m.auth.token)) {
+        authedKey = akey;
+        if (isDev(akey)) client.dev = true;
+      }
     }
+    // impostor guard: claimed hero names and dev names belong to their owners
+    accounts.names = accounts.names || {};
+    const jkey = jname.toLowerCase();
+    const owner = accounts.names[jkey];
+    if ((owner && owner !== authedKey) || (isDev(jkey) && !client.dev)) {
+      jname = (jname.slice(0, 10) + '_' + client.id).slice(0, 14);
+      send(client, { t: 'renamed', name: jname });
+      log(`#${client.id} tried claimed name — renamed to ${jname}`);
+    }
+    client.name = jname;
     // tell the newcomer who's already here and who runs the world
     send(client, {
       t: 'welcome', id: client.id, authId: authorityId(), board: topList(),

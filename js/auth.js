@@ -76,8 +76,15 @@ const Auth = {
     const pass = $('authPass').value;
     if (!user || !pass) { this.err('Enter a username and password.', true); return; }
     $('authGo').disabled = true;
-    const r = await this.api(this.mode === 'login' ? '/api/login' : '/api/register', { user, pass });
+    const devkey = $('authKey').value || (this.loadLocal() || {}).devkey || undefined;
+    const r = await this.api(this.mode === 'login' ? '/api/login' : '/api/register', { user, pass, devkey });
     $('authGo').disabled = false;
+    if (!r.ok && r.error === 'reserved') {
+      $('authKey').classList.remove('hidden');
+      this.err('That name is reserved for a Dev — enter the Dev key.', true);
+      $('authKey').focus();
+      return;
+    }
     if (!r.ok) {
       if (r.error === 'no_account') {
         // the free-tier realm resets sometimes; if this device remembers the
@@ -85,7 +92,7 @@ const Auth = {
         const saved = this.loadLocal();
         if (saved && saved.user && saved.user.toLowerCase() === user.toLowerCase() &&
             saved.mirror && Object.keys(saved.mirror).length) {
-          const rr = await this.api('/api/register', { user, pass });
+          const rr = await this.api('/api/register', { user, pass, devkey });
           if (rr.ok) {
             this.user = rr.user; this.token = rr.token; this.chars = {}; this.dev = !!rr.dev;
             this.mergeMirror();
@@ -131,6 +138,7 @@ const Auth = {
     try {
       localStorage.setItem('emberfall_auth_v1', JSON.stringify({
         user: this.user, token: this.token, mirror: this.chars,
+        devkey: $('authKey').value || (this.loadLocal() || {}).devkey || undefined,
       }));
     } catch (e) {}
   },
@@ -243,13 +251,22 @@ const Auth = {
     enterWorld(true);
   },
   // called by the FORGE HERO button (main.js) — routes account vs guest
-  forgeHero(cls, name) {
+  async forgeHero(cls, name) {
     name = String(name || '').trim();
     if (name.length < 5) {
       const ne = $('nameErr');
       ne.textContent = 'Hero names must be at least 5 letters long.';
       $('nameInput').focus();
       return;
+    }
+    // logged-in heroes claim their name realm-wide — no duplicates, no impostors
+    if (this.online && this.user && !this.guest) {
+      const r = await this.api('/api/claimname', { user: this.user, token: this.token, name });
+      if (!r.ok) {
+        $('nameErr').textContent = r.error === 'no_session' ? 'Session expired — please sign in again.' : (r.error || 'Name unavailable.');
+        $('nameInput').focus();
+        return;
+      }
     }
     $('nameErr').textContent = '';
     initAudio();
