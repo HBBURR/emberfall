@@ -112,7 +112,7 @@ const Net = {
       chat('sys', `⚔ ${m.name} has entered Emberfall!`);
     } else if (m.t === 'state') {
       const r = this.remotes[m.id];
-      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; }
+      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; r.av = m.av; r.hv = m.hv; r.bv = m.bv; }
     } else if (m.t && m.t.startsWith('trade')) {
       Trade.handle(m);
     } else if (m.t && m.t.startsWith('duel')) {
@@ -151,7 +151,8 @@ const Net = {
     if (this.sendT <= 0) {
       this.sendT = 0.1;   // 10 updates/s
       const p = G.player;
-      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100) });
+      const gv = gearVis(p.equip);
+      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100), av: gv.a === null ? -1 : gv.a, hv: gv.h === null ? -1 : gv.h, bv: gv.b === null ? -1 : gv.b });
     }
     // ranked score heartbeat (drives the realm leaderboard)
     this.scoreT -= dt;
@@ -207,6 +208,7 @@ const Trade = {
     this._openWindow({
       peerId, peerName,
       peerCls: r ? r.cls : 'warrior', peerLevel: r ? r.level : 1, peerWt: r && r.wt !== undefined ? r.wt : 0,
+      peerGear: r ? { a: r.av >= 0 ? r.av : null, h: r.hv >= 0 ? r.hv : null, b: r.bv >= 0 ? r.bv : null } : {},
     });
   },
 
@@ -582,8 +584,9 @@ function drawRemote(ctx, r, cam) {
   const c = CLASSES[r.cls];
   drawHumanoid(ctx, x, y, {
     color: c.color, hair: c.hair, facing: r.facing, walkT: r.walkT, moving: r.moving,
-    name: r.name, nameColor: '#ffb84a', level: r.level,
+    name: r.name, nameColor: Party.has(r.id) ? '#7fd18a' : '#ffb84a', level: r.level,
     weapon: r.cls === 'warrior' ? 'sword' : r.cls === 'mage' ? 'staff' : 'bow',
     wtier: r.wt === undefined ? 0 : r.wt,
+    gear: { a: r.av >= 0 ? r.av : null, h: r.hv >= 0 ? r.hv : null, b: r.bv >= 0 ? r.bv : null },
   });
 }

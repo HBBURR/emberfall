@@ -392,9 +392,27 @@ function drawShadow(ctx, x, y, r) {
   ctx.beginPath(); ctx.ellipse(x, y + 2, r, r * 0.38, 0, 0, 7); ctx.fill();
 }
 
+// visual palettes for worn gear (index = vt): cloth, leather, iron, ember, dawn, frost, hollow
+const ARMOR_PAL = [
+  { main: '#c9bfa4', trim: '#a89878' },
+  { main: '#7a5a34', trim: '#54401f' },
+  { main: '#8a8f9a', trim: '#c0c4d0' },
+  { main: '#4c4c5a', trim: '#ff9a4a', glow: '255,140,60' },
+  { main: '#e8d9a0', trim: '#ffe14a', glow: '255,225,100' },
+  { main: '#a8c8dc', trim: '#eaf6ff', glow: '140,210,255' },
+  { main: '#2c2440', trim: '#8a5aff', glow: '120,70,255' },
+];
+// map a player's equipped pieces to visual tiers (null = not worn)
+function gearVis(equip) {
+  const vt = id => (id && ITEMS[id] && ITEMS[id].vt !== undefined) ? ITEMS[id].vt : null;
+  return { a: vt(equip.armor), h: vt(equip.helm), b: vt(equip.boots) };
+}
+
 // humanoid: used for player, npcs, bots
 function drawHumanoid(ctx, x, y, opts) {
   const { color, hair, facing, walkT, moving, name, nameColor, weapon, attackAnim, aim, hurt, level } = opts;
+  const gear = opts.gear || {};
+  const gl = Math.sin(G.time * 3.2 + x * 0.1) * 0.5 + 0.5;
   const bob = moving ? Math.abs(Math.sin(walkT)) * 3 : Math.sin(G.time * 2 + x) * 0.8;
   const legSwing = moving ? Math.sin(walkT) * 5 : 0;
   drawShadow(ctx, x, y + 14, 11);
@@ -405,24 +423,101 @@ function drawHumanoid(ctx, x, y, opts) {
   ctx.fillStyle = '#2e2a3a';
   ctx.fillRect(-6, 4 + Math.max(0, -legSwing) * 0.4, 5, 10 + legSwing * 0.5);
   ctx.fillRect(1, 4 + Math.max(0, legSwing) * 0.4, 5, 10 - legSwing * 0.5);
-  // body
+  // boots overlay
+  if (gear.b != null) {
+    const bp = ARMOR_PAL[gear.b];
+    ctx.fillStyle = bp.main;
+    ctx.fillRect(-6.5, 9 + Math.max(0, -legSwing) * 0.4, 6, 6 + legSwing * 0.4);
+    ctx.fillRect(0.5, 9 + Math.max(0, legSwing) * 0.4, 6, 6 - legSwing * 0.4);
+    ctx.fillStyle = bp.trim;
+    ctx.fillRect(-6.5, 9, 6, 1.4); ctx.fillRect(0.5, 9, 6, 1.4);
+  }
+  // body (class garb as the base layer)
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.roundRect(-8, -10, 16, 16, 5); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,.22)';
-  ctx.beginPath(); ctx.roundRect(-8, -2, 16, 8, 4); ctx.fill();
+  // chest armor overlay
+  if (gear.a != null) {
+    const ap = ARMOR_PAL[gear.a];
+    if (ap.glow) {
+      ctx.fillStyle = `rgba(${ap.glow},${0.10 + gl * 0.10})`;
+      ctx.beginPath(); ctx.roundRect(-10.5, -12.5, 21, 18, 7); ctx.fill();
+    }
+    ctx.fillStyle = ap.main;
+    ctx.beginPath(); ctx.roundRect(-8.5, -10.5, 17, 14, 5); ctx.fill();
+    // shoulder trim + center seam
+    ctx.fillStyle = ap.trim;
+    ctx.fillRect(-8.5, -10.5, 17, 2.2);
+    ctx.fillRect(-0.8, -8, 1.6, 10);
+    ctx.fillStyle = 'rgba(0,0,0,.18)';
+    ctx.beginPath(); ctx.roundRect(-8.5, -3, 17, 6.5, 4); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(0,0,0,.22)';
+    ctx.beginPath(); ctx.roundRect(-8, -2, 16, 8, 4); ctx.fill();
+  }
   // belt
   ctx.fillStyle = '#c9a227'; ctx.fillRect(-8, 1, 16, 2.5);
   // head
   ctx.fillStyle = '#e8c49a';
   ctx.beginPath(); ctx.arc(0, -17, 7.5, 0, 7); ctx.fill();
-  // hair
-  ctx.fillStyle = hair;
-  ctx.beginPath(); ctx.arc(0, -19.5, 7, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
-  ctx.fillRect(-7, -20, 14, 4);
+  // hair (hidden under full helms; shows under circlets)
+  if (gear.h == null || gear.h === 4) {
+    ctx.fillStyle = hair;
+    ctx.beginPath(); ctx.arc(0, -19.5, 7, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+    ctx.fillRect(-7, -20, 14, 4);
+  }
   // eyes
   ctx.fillStyle = '#1a1a2a';
   const eyeOff = facing < 0 ? -2.4 : 2.4;
   ctx.fillRect(eyeOff - 2.5, -18, 2, 2.5); ctx.fillRect(eyeOff + 1, -18, 2, 2.5);
+  // helm overlay
+  if (gear.h != null) {
+    const hp2 = ARMOR_PAL[gear.h];
+    if (gear.h === 4) {
+      // Crown of Dawn: glowing circlet over the hair
+      ctx.fillStyle = hp2.trim;
+      ctx.fillRect(-7, -22.5, 14, 2.2);
+      ctx.beginPath();
+      ctx.moveTo(-5, -22.5); ctx.lineTo(-4, -26); ctx.lineTo(-3, -22.5);
+      ctx.moveTo(-1, -22.5); ctx.lineTo(0, -27.5); ctx.lineTo(1, -22.5);
+      ctx.moveTo(3, -22.5); ctx.lineTo(4, -26); ctx.lineTo(5, -22.5);
+      ctx.fill();
+      ctx.fillStyle = `rgba(${hp2.glow},${0.25 + gl * 0.25})`;
+      ctx.beginPath(); ctx.arc(0, -23, 9 + gl * 2, 0, 7); ctx.fill();
+    } else if (gear.h === 6) {
+      // Hollow Visage: featureless mask, eyes of void-light
+      ctx.fillStyle = hp2.main;
+      ctx.beginPath(); ctx.arc(0, -17.5, 7.8, 0, 7); ctx.fill();
+      ctx.fillStyle = hp2.trim;
+      ctx.fillRect(-7.8, -18.5, 15.6, 1.2);
+      ctx.fillStyle = `rgba(${hp2.glow},${0.7 + gl * 0.3})`;
+      ctx.fillRect(eyeOff - 2.5, -18.5, 2, 2.5); ctx.fillRect(eyeOff + 1, -18.5, 2, 2.5);
+    } else {
+      // dome helms (cap / iron / ember / frost)
+      ctx.fillStyle = hp2.main;
+      ctx.beginPath(); ctx.arc(0, -18.5, 7.4, Math.PI * 0.97, Math.PI * 2.03); ctx.fill();
+      ctx.fillRect(-7.3, -19.5, 14.6, 3.4);
+      ctx.fillStyle = hp2.trim;
+      ctx.fillRect(-7.3, -16.6, 14.6, 1.3);
+      if (gear.h === 2) { // iron nose guard
+        ctx.fillStyle = hp2.main;
+        ctx.fillRect(eyeOff - 1, -17, 2, 4.5);
+      }
+      if (gear.h === 3 && hp2.glow) { // ember band glow
+        ctx.fillStyle = `rgba(${hp2.glow},${0.5 + gl * 0.4})`;
+        ctx.fillRect(-7.3, -16.6, 14.6, 1.3);
+      }
+      if (gear.h === 5) { // frost antlers
+        ctx.strokeStyle = hp2.trim;
+        ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-5, -23); ctx.quadraticCurveTo(-8, -27, -7, -30);
+        ctx.moveTo(-6.6, -27.5); ctx.lineTo(-9, -28.5);
+        ctx.moveTo(5, -23); ctx.quadraticCurveTo(8, -27, 7, -30);
+        ctx.moveTo(6.6, -27.5); ctx.lineTo(9, -28.5);
+        ctx.stroke();
+      }
+    }
+  }
   // weapon — appearance scales with the equipped item's tier
   if (weapon) {
     const wt = clamp((opts.wtier === undefined ? 0 : opts.wtier) + 1, 0, 6); // 0=unarmed .. 4=dawn, 5=frost, 6=hollow

@@ -332,6 +332,7 @@ function drawPlayerChar(ctx, cam) {
     walkT: p.walkT, moving: p.moving, name: p.name, nameColor: '#8fffb0',
     weapon: p.cls === 'warrior' ? 'sword' : p.cls === 'mage' ? 'staff' : 'bow',
     wtier: playerWeaponTier(p),
+    gear: gearVis(p.equip),
     attackAnim: p.attackAnim, aim: p.facing, hurt: p.hurtT, level: p.level,
   });
 }
@@ -359,6 +360,7 @@ function drawBot(ctx, b, cam) {
     name: b.name, nameColor: '#8fb3ff', level: b.level,
     weapon: b.cls === 'warrior' ? 'sword' : b.cls === 'mage' ? 'staff' : 'bow',
     wtier: Math.min(3, Math.floor(b.level / 3)),
+    gear: b.level >= 3 ? { a: Math.min(4, Math.floor(b.level / 2)), h: b.level >= 5 ? Math.min(4, Math.floor(b.level / 2)) : null, b: 1 } : {},
   });
 }
 

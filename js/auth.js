@@ -175,6 +175,7 @@ const Auth = {
         color: cls.color, hair: cls.hair, facing: 1, walkT: 0, moving: false,
         weapon: data.cls === 'warrior' ? 'sword' : data.cls === 'mage' ? 'staff' : 'bow',
         wtier, aim: -0.4, hurt: 0,
+        gear: data.equip ? gearVis(data.equip) : {},
       });
       x.restore();
     }

@@ -422,6 +422,7 @@ function drawDoll() {
     color: cls.color, hair: cls.hair, facing: 1, walkT: 0, moving: false,
     weapon: p.cls === 'warrior' ? 'sword' : p.cls === 'mage' ? 'staff' : 'bow',
     wtier: playerWeaponTier(p),
+    gear: gearVis(p.equip),
     attackAnim: 0, aim: -0.4, hurt: 0,
   });
   x.restore();
@@ -495,7 +496,7 @@ function drawTradeDolls() {
   const a = Trade.active;
   if (!a) return;
   const p = G.player;
-  const draw = (canvasId, cls, wtier, faceRight) => {
+  const draw = (canvasId, cls, wtier, gear, faceRight) => {
     const c = $(canvasId);
     if (!c) return;
     const x = c.getContext('2d');
@@ -507,12 +508,12 @@ function drawTradeDolls() {
     drawHumanoid(x, 0, 0, {
       color: cd.color, hair: cd.hair, facing: faceRight ? 1 : -1, walkT: 0, moving: false,
       weapon: cls === 'warrior' ? 'sword' : cls === 'mage' ? 'staff' : 'bow',
-      wtier, aim: faceRight ? -0.35 : Math.PI + 0.35, hurt: 0,
+      wtier, gear: gear || {}, aim: faceRight ? -0.35 : Math.PI + 0.35, hurt: 0,
     });
     x.restore();
   };
-  draw('tradeDollMine', p.cls, playerWeaponTier(p), true);
-  draw('tradeDollTheirs', a.peerCls, a.peerWt, false);
+  draw('tradeDollMine', p.cls, playerWeaponTier(p), gearVis(p.equip), true);
+  draw('tradeDollTheirs', a.peerCls, a.peerWt, a.peerGear, false);
 }
 
 function openTradeAddMenu(cx, cy) {

@@ -62,6 +62,10 @@ walks beside you, and talks in real chat (press **Enter** to type).
   stats against what you're wearing with green/red deltas.
 - **Class-locked weapons** — swords for Warriors, staves for Mages, bows for Rangers, four tiers
   each. Quest rewards, chest loot, and Bram's stock all resolve to your class's variant.
+- **Visible armor** — your equipped chest, helm, and boots draw on your character across seven
+  visual tiers (cloth → leather → iron → Ember → Dawn → Frost → Hollow), with set palettes,
+  glow trims, crowns, antlers, and the eyeless Hollow Visage — synced to other players and shown
+  on the bag paper-doll, character select, and trade window.
 - **Visible weapon tiers** — your equipped weapon changes your character's in-hand model
   (wooden → rusty → steel → glowing Emberforged → radiant tier-3), for all three classes,
   visible to other players in multiplayer.
