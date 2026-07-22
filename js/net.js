@@ -115,7 +115,7 @@ const Net = {
       chat('sys', `⚔ ${m.name} has entered Emberfall!`);
     } else if (m.t === 'state') {
       const r = this.remotes[m.id];
-      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; r.av = m.av; r.hv = m.hv; r.bv = m.bv; }
+      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; r.av = m.av; r.hv = m.hv; r.bv = m.bv; r.mt = m.mt; }
     } else if (m.t && m.t.startsWith('trade')) {
       Trade.handle(m);
     } else if (m.t && m.t.startsWith('duel')) {
@@ -159,7 +159,7 @@ const Net = {
       this.sendT = 0.1;   // 10 updates/s
       const p = G.player;
       const gv = gearVis(p.equip);
-      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100), av: gv.a === null ? -1 : gv.a, hv: gv.h === null ? -1 : gv.h, bv: gv.b === null ? -1 : gv.b });
+      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100), av: gv.a === null ? -1 : gv.a, hv: gv.h === null ? -1 : gv.h, bv: gv.b === null ? -1 : gv.b, mt: (p.mounted && p.mount) ? ITEMS[p.mount].mvt : -1 });
     }
     // ranked score heartbeat (drives the realm leaderboard)
     this.scoreT -= dt;
@@ -586,9 +586,14 @@ const Duel = {
 };
 
 function drawRemote(ctx, r, cam) {
-  const x = r.x - cam.x, y = r.y - cam.y;
+  const x = r.x - cam.x;
+  let y = r.y - cam.y;
   if (x < -60 || y < -60 || x > G.W + 60 || y > G.H + 60) return;
   const c = CLASSES[r.cls];
+  if (r.mt >= 0) {
+    drawMount(ctx, x, y, r.mt, r.facing, r.walkT, r.moving);
+    y -= 15;
+  }
   drawHumanoid(ctx, x, y, {
     color: c.color, hair: c.hair, facing: r.facing, walkT: r.walkT, moving: r.moving,
     name: (r.dev ? '⚙ ' : '') + r.name,

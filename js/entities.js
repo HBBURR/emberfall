@@ -23,6 +23,7 @@ function makePlayer(cls, name) {
     combatT: 0, dead: false, respawnT: 0,
     kills: {}, playTime: 0,
     ach: {}, counters: { elites: 0, fish: 0, duelWins: 0 },
+    mount: null, mounted: false,
   };
 }
 
@@ -63,6 +64,7 @@ function updatePlayer(dt) {
   if (G.keys['a'] || G.keys['arrowleft']) mx -= 1;
   if (G.keys['d'] || G.keys['arrowright']) mx += 1;
   let spd = st.speed;
+  if (p.mounted) spd *= 1.7;
   p.rollCd = Math.max(0, p.rollCd - dt);
   if (p.rollT > 0) {
     p.rollT -= dt; mx = Math.cos(p.rollAng); my = Math.sin(p.rollAng); spd = 540;
@@ -406,6 +408,69 @@ const ARMOR_PAL = [
 function gearVis(equip) {
   const vt = id => (id && ITEMS[id] && ITEMS[id].vt !== undefined) ? ITEMS[id].vt : null;
   return { a: vt(equip.armor), h: vt(equip.helm), b: vt(equip.boots) };
+}
+
+// ---------------- Mounts ----------------
+const MOUNT_PAL = [
+  { body: '#7a4a28', dark: '#5a3418', mane: '#3a2412' },                    // chestnut courser
+  { body: '#c2d4e0', dark: '#98b4c4', mane: '#eef8ff', antlers: true },     // frostpeak elk
+  { body: '#241a34', dark: '#171024', mane: '#8a5aff', flame: true },       // void charger
+];
+function drawMount(ctx, x, y, mvt, facing, walkT, moving) {
+  const M = MOUNT_PAL[mvt] || MOUNT_PAL[0];
+  const gallop = moving ? Math.sin(walkT * 1.6) : Math.sin(G.time * 1.6) * 0.3;
+  drawShadow(ctx, x, y + 17, 17);
+  ctx.save();
+  ctx.translate(x, y + 2 - Math.abs(gallop) * 2.5);
+  ctx.scale(facing, 1);
+  // legs — galloping pairs
+  ctx.fillStyle = M.dark;
+  ctx.fillRect(-13, 6, 4, 11 + gallop * 3);
+  ctx.fillRect(-7, 6, 4, 11 - gallop * 3);
+  ctx.fillRect(6, 6, 4, 11 - gallop * 2.5);
+  ctx.fillRect(12, 6, 4, 11 + gallop * 2.5);
+  // body
+  ctx.fillStyle = M.body;
+  ctx.beginPath(); ctx.ellipse(0, -2, 17, 9, 0, 0, 7); ctx.fill();
+  // neck + head
+  ctx.beginPath();
+  ctx.moveTo(10, -6); ctx.quadraticCurveTo(16, -14, 17, -18);
+  ctx.lineTo(22, -16); ctx.quadraticCurveTo(18, -8, 16, -4); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(21, -17, 6, 3.6, -0.35, 0, 7); ctx.fill();
+  // ear
+  ctx.beginPath(); ctx.moveTo(17, -20); ctx.lineTo(18.5, -24); ctx.lineTo(20.5, -20); ctx.closePath(); ctx.fill();
+  // muzzle shade + eye
+  ctx.fillStyle = M.dark;
+  ctx.beginPath(); ctx.ellipse(25, -16.4, 2.6, 2, -0.35, 0, 7); ctx.fill();
+  ctx.fillStyle = '#14100c';
+  ctx.beginPath(); ctx.arc(20, -18, 1.2, 0, 7); ctx.fill();
+  // mane
+  if (M.flame) {
+    const fl = Math.sin(G.time * 8) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(138,90,255,${0.55 + fl * 0.35})`;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(9 + i * 2.4, -12 - i * 2.6, 2.6 + fl, 0, 7); ctx.fill();
+    }
+  } else {
+    ctx.strokeStyle = M.mane; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(11, -8); ctx.quadraticCurveTo(15, -14, 16, -19); ctx.stroke();
+  }
+  // antlers (elk)
+  if (M.antlers) {
+    ctx.strokeStyle = '#e8ded0'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(18, -21); ctx.quadraticCurveTo(15, -28, 17, -32);
+    ctx.moveTo(16.2, -27); ctx.lineTo(13, -29);
+    ctx.moveTo(21, -21); ctx.quadraticCurveTo(24, -28, 22, -33);
+    ctx.moveTo(22.6, -27.5); ctx.lineTo(26, -29.5);
+    ctx.stroke();
+  }
+  // tail
+  ctx.strokeStyle = M.flame ? 'rgba(138,90,255,.8)' : M.mane;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-16, -4); ctx.quadraticCurveTo(-22, 2 + gallop * 2, -21, 9 + gallop * 2); ctx.stroke();
+  ctx.restore();
 }
 
 // humanoid: used for player, npcs, bots
@@ -1059,6 +1124,7 @@ function drawGroundItems(ctx, cam) {
 function doRoll() {
   const p = G.player;
   if (p.dead || p.rollCd > 0 || p.rollT > 0 || G.state !== 'play') return;
+  dismount();   // you roll, the horse doesn't
   let mx = 0, my = 0;
   if (G.keys['w'] || G.keys['arrowup']) my -= 1;
   if (G.keys['s'] || G.keys['arrowdown']) my += 1;

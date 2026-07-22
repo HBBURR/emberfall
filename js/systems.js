@@ -191,6 +191,7 @@ function damagePlayer(rawDmg, srcName) {
   const dmg = Math.max(1, Math.round(rawDmg * (0.9 + Math.random() * 0.2) - st.def));
   p.hp -= dmg;
   p.hurtT = 0.3; p.combatT = 4;
+  dismount();   // knocked from the saddle
   if (G.settings.dmgNums) floater(p.x, p.y - 26, '-' + dmg, '#ff6a5a');
   spawnParticles(p.x, p.y - 10, 6, '#e04a3a', 90, 0.3);
   G.shake = Math.max(G.shake, 0.18);
@@ -213,9 +214,25 @@ function respawnPlayer() {
 }
 
 // ---------------- Skills ----------------
+function toggleMount() {
+  const p = G.player;
+  if (p.dead || G.state !== 'play') return;
+  if (!p.mount) { chat('sys', 'You have no mount — Bram sells the Chestnut Courser.'); return; }
+  p.mounted = !p.mounted;
+  spawnParticles(p.x, p.y + 8, 10, '#c9b088', 80, 0.4);
+  sfx('gather');
+}
+function dismount() {
+  if (G.player.mounted) {
+    G.player.mounted = false;
+    spawnParticles(G.player.x, G.player.y + 8, 8, '#c9b088', 70, 0.35);
+  }
+}
+
 function useSkill(slot) {
   const p = G.player;
   if (p.dead || G.state !== 'play') return;
+  dismount();   // fighting happens on your own two feet
   const idx = p.skillOrder[slot];               // hotbar slot -> class skill (drag to reorder)
   const skillId = CLASSES[p.cls].skills[idx];
   const sk = SKILLS[skillId];
@@ -446,6 +463,10 @@ function useItem(id) {
     }
     sfx('potion');
     removeItem(id, 1);
+  } else if (it.slot === 'mount') {
+    p.mount = id;
+    sfx('quest');
+    chat('sys', `🐎 ${itemLabel(id)} stabled — press Z to ride!`);
   } else if (EQUIP_SLOTS.includes(it.slot)) {
     if (it.wclass && it.wclass !== p.cls) {
       chat('sys', `Only a ${CLASSES[it.wclass].name} can wield ${itemLabel(id)}. (Bram will buy it.)`);
@@ -786,7 +807,7 @@ function saveGame() {
     level: p.level, xp: p.xp, gold: p.gold, hp: p.hp, mp: p.mp,
     inv: p.inv, equip: p.equip, kills: p.kills, playTime: p.playTime,
     ach: p.ach, counters: p.counters,
-    skillOrder: p.skillOrder, potionBinds: p.potionBinds,
+    skillOrder: p.skillOrder, potionBinds: p.potionBinds, mount: p.mount,
     quests: G.quests, bossDead: G.bossDead, dayTime: G.dayTime,
     gatherTaken: G.gatherNodes.map(g => g.taken > 0),
     chestsOpen: G.chests.map(c => c.open),
@@ -832,6 +853,7 @@ function applySave(data) {
     ach: data.ach || {}, counters: Object.assign({ elites: 0, fish: 0, duelWins: 0 }, data.counters),
     skillOrder: Array.isArray(data.skillOrder) && data.skillOrder.length === 4 ? data.skillOrder : [0, 1, 2, 3],
     potionBinds: Array.isArray(data.potionBinds) && data.potionBinds.length === 2 ? data.potionBinds : ['hp_potion', 'mp_potion'],
+    mount: data.mount && ITEMS[data.mount] ? data.mount : null,
   });
   G.player = p;
   G.quests = data.quests || {};

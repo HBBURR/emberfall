@@ -919,6 +919,7 @@ const CONTROLS_LIST = [
   ['Attack', 'Left Click / 1'],
   ['Skills', '1 – 4  (drag slots to reorder)'],
   ['Dodge roll (invincible)', 'Space'],
+  ['Mount / dismount', 'Z'],
   ['Talk · gather · open · fish', 'E  or  Left Click'],
   ['Options menu (trade, inspect...)', 'Right Click'],
   ['Bound potions', '5 / 6  (drag from bag to rebind)'],

@@ -144,6 +144,10 @@ const ITEMS = {
   shard_dawn:  { name: 'Shard of the Dawn',icon:'🌟', slot: 'trinket', rar: 3, crit: 15, spd: 18, set: 'dawn', price: 999, desc: '+15% Crit, +18 Move speed. It is warm to the touch.' },
   depth_pearl: { name: 'Pearl of the Depths', icon: '🫧', slot: 'trinket', rar: 3, crit: 12, hp: 60, spd: 8, price: 999, desc: '+12% Crit, +60 Health, +8 Speed. It remembers the dark below the pond.' },
   hollow_crown:{ name: 'The Hollow Crown', icon: '👁️‍🗨️', slot: 'trinket', rar: 3, crit: 20, spd: 20, hp: 200, set: 'hollow', price: 9999, desc: '+20% Crit, +20 Speed, +200 Health. Heavy is the head.' },
+  // mounts — use once to stable it, then press Z to ride
+  horse_whistle:{ name: 'Chestnut Courser', icon: '🐎', slot: 'mount', rar: 1, mvt: 0, price: 250, desc: 'A loyal riding horse. Use to stable, press Z to ride. +70% speed.' },
+  elk_whistle: { name: 'Frostpeak Elk',    icon: '🦌', slot: 'mount', rar: 2, mvt: 1, price: 2000, desc: 'A pale elk of the high snow. Use to stable, press Z to ride. +70% speed.' },
+  void_charger:{ name: 'Void Charger',     icon: '🐴', slot: 'mount', rar: 3, mvt: 2, price: 9999, desc: 'The Hollow King\'s own steed, mane of violet flame. Use to stable, press Z to ride. +70% speed.' },
   // expansion gather + junk
   cinder_bloom:{ name: 'Cinderbloom',     icon: '🌺', slot: 'quest', rar: 1, desc: 'A flower that blooms only in scorched earth.' },
   frost_lily:  { name: 'Frost Lily',      icon: '💮', slot: 'quest', rar: 1, desc: 'It blooms at the edge of the ice.' },
@@ -172,14 +176,14 @@ const ENEMY_TYPES = {
   // ---- Frostpeak Highlands (lv 20-32) ----
   frostwolf:{ name: 'Frostmane Wolf',   lv: 23, hp: 800,  dmg: 60, xp: 420, speed: 118, gold: [40, 70],  aggroR: 180, kind: 'wolf',   scale: 1.15, fur: '#b8d4e4', eye: '#5ad4ff', drops: [['ice_core', .35], ['hp_potion2', .15]] },
   iceshade: { name: 'Ice Shade',        lv: 27, hp: 950,  dmg: 72, xp: 560, speed: 84,  gold: [50, 85],  aggroR: 220, kind: 'cultist',scale: 1.05, robe: '#3a5a74', rune: '#8ae8ff', ranged: true, drops: [['ice_core', .4], ['frost_treads', .012]] },
-  frostgiant:{name: 'Frost Giant',      lv: 30, hp: 1900, dmg: 92, xp: 850, speed: 55,  gold: [80, 130], aggroR: 170, kind: 'golem',  scale: 1.7, rock: '#7a9ab0', glow: '140,220,255', drops: [['ice_core', .6], ['frost_mail', .02]] },
+  frostgiant:{name: 'Frost Giant',      lv: 30, hp: 1900, dmg: 92, xp: 850, speed: 55,  gold: [80, 130], aggroR: 170, kind: 'golem',  scale: 1.7, rock: '#7a9ab0', glow: '140,220,255', drops: [['ice_core', .6], ['frost_mail', .02], ['elk_whistle', .03]] },
   // ---- The Duskmire (lv 30-42) ----
   bogfiend: { name: 'Bog Fiend',        lv: 34, hp: 1500, dmg: 100, xp: 950, speed: 76, gold: [70, 120], aggroR: 180, kind: 'drowned',scale: 1.15, tint: '#5a6a3a', drops: [['mire_pearl', .3], ['hp_potion2', .2]] },
   duskwisp: { name: 'Dusk Wisp',        lv: 37, hp: 1200, dmg: 112, xp: 1050, speed: 92, gold: [80, 130], aggroR: 200, kind: 'sprite', scale: 1.2, tint: '190,240,140', drops: [['mire_pearl', .35], ['mp_potion', .25]] },
   mirehulk: { name: 'Mire Hulk',        lv: 39, hp: 2600, dmg: 125, xp: 1350, speed: 46, gold: [110, 170], aggroR: 160, kind: 'slime', scale: 1.5, tint1: '150,180,90', tint2: '70,100,40', drops: [['mire_pearl', .5], ['hollow_helm', .008]] },
   // ---- The Shattered Spire (lv 40-50) ----
   voidknight:{name: 'Void Knight',      lv: 44, hp: 3400, dmg: 155, xp: 1900, speed: 88, gold: [150, 240], aggroR: 220, kind: 'cultist', scale: 1.15, robe: '#241a34', rune: '#b06aff', drops: [['void_sliver', .45], ['hollow_striders', .01]] },
-  hollowking:{name: 'The Hollow King',  lv: 50, hp: 32000, dmg: 210, xp: 12000, speed: 66, gold: [2500, 4000], aggroR: 320, kind: 'hollow', scale: 2.8, boss: true, ranged: true, drops: [['hollow_crown', 1], ['hollow_plate', 1]] },
+  hollowking:{name: 'The Hollow King',  lv: 50, hp: 32000, dmg: 210, xp: 12000, speed: 66, gold: [2500, 4000], aggroR: 320, kind: 'hollow', scale: 2.8, boss: true, ranged: true, drops: [['hollow_crown', 1], ['hollow_plate', 1], ['void_charger', .5]] },
   warden:   { name: 'The Blightroot Warden', lv: 10, hp: 1500, dmg: 26, xp: 900, speed: 62, gold: [200, 300], aggroR: 300, kind: 'warden', scale: 2.4, boss: true, ranged: true, drops: [['shard_dawn', 1], ['dawn_plate', 1]] },
 };
 
@@ -356,7 +360,7 @@ const WEAPON_BY_CLASS = {
   mage: ['cracked_staff', 'adept_staff', 'ember_staff', 'dawncaller', 'frost_staff', 'hollow_staff'],
   ranger: ['bent_bow', 'hunter_bow', 'ember_bow', 'dawnwing', 'frost_bow', 'hollow_bow'],
 };
-const SHOP_STOCK = ['hp_potion', 'mp_potion', 'hp_potion2', 'rusty_sword', 'cloth_vest', 'leather_cap', 'worn_boots', 'wolf_charm'];
+const SHOP_STOCK = ['hp_potion', 'mp_potion', 'hp_potion2', 'rusty_sword', 'cloth_vest', 'leather_cap', 'worn_boots', 'wolf_charm', 'horse_whistle'];
 
 // ---------------- Achievements ----------------
 const ACHIEVEMENTS = {

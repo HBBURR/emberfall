@@ -127,6 +127,7 @@ function setupInput() {
       else chat('sys', bind ? `No ${ITEMS[bind].name}s left! Bram sells supplies.` : 'Nothing bound — drag a potion from your bag onto that slot.');
     }
     if (k === ' ') { e.preventDefault(); doRoll(); }
+    if (k === 'z') toggleMount();
     if (k === 'm') togglePanel('worldMap');
     if (k === 'n') toggleMute();
     if (k === 'e') interact();
@@ -327,7 +328,12 @@ function render() {
 function drawPlayerChar(ctx, cam) {
   const p = G.player;
   const c = CLASSES[p.cls];
-  drawHumanoid(ctx, p.x - cam.x, p.y - cam.y, {
+  let ry = p.y - cam.y;
+  if (p.mounted && p.mount) {
+    drawMount(ctx, p.x - cam.x, ry, ITEMS[p.mount].mvt, Math.cos(p.facing) < 0 ? -1 : 1, p.walkT, p.moving);
+    ry -= 15;
+  }
+  drawHumanoid(ctx, p.x - cam.x, ry, {
     color: c.color, hair: c.hair, facing: Math.cos(p.facing) < 0 ? -1 : 1,
     walkT: p.walkT, moving: p.moving,
     name: (Auth.dev ? '⚙ ' : '') + p.name,
