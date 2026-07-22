@@ -112,7 +112,7 @@ function setupInput() {
       if ($('ctxMenu')) { closeCtxMenu(); return; }
       if (Trade.active) { Trade.cancel(); return; }
       if (!$('pauseMenu').classList.contains('hidden')) closePause();
-      else if (anyPanelOpen()) { ['inventory', 'charsheet', 'questlog'].forEach(p => $(p).classList.add('hidden')); closeDialogue(); }
+      else if (anyPanelOpen()) { ['inventory', 'charsheet', 'questlog', 'board', 'worldMap', 'bankPanel'].forEach(p => $(p).classList.add('hidden')); closeDialogue(); }
       else openPause();
       return;
     }
@@ -241,6 +241,8 @@ function update(dt) {
   updatePartyFrames();
   if (!$('inventory').classList.contains('hidden')) drawDoll();
   if (!$('worldMap').classList.contains('hidden')) renderWorldMap();
+  // vault closes if you walk away from it
+  if (bankOpen() && G.vaultPos && dist(G.player.x, G.player.y, G.vaultPos.x, G.vaultPos.y) > 110) $('bankPanel').classList.add('hidden');
   if (Trade.active) drawTradeDolls();
   // cursor feedback: pointer over friendlies/loot, crosshair over monsters
   const hover = entityAtScreen(G.mouse.x, G.mouse.y);
@@ -262,6 +264,7 @@ function render() {
   ctx.clearRect(0, 0, G.W, G.H);
   World.draw(ctx, cam);
   drawPortals(ctx, cam);
+  drawVault(ctx, cam);
   drawGatherNodes(ctx, cam);
   drawChests(ctx, cam);
   drawGroundItems(ctx, cam);

@@ -272,6 +272,9 @@ const World = {
     this.house(59, 114, 6, 5); this.house(76, 114, 7, 5);
     // torch posts stored for lighting
     this.torches = [[65, 108], [75, 108], [65, 115], [75, 115], [70, 95], [70, 122]];
+    // Havenbrook Vault — permanent storage in the plaza
+    G.vaultPos = { x: 70 * TILE + 16, y: 106 * TILE + 16 };
+    this.set(70, 106, 1);
     // collect trees for canopy pass
     this.trees = [];
     for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++)

@@ -24,6 +24,7 @@ function makePlayer(cls, name) {
     kills: {}, playTime: 0,
     ach: {}, counters: { elites: 0, fish: 0, duelWins: 0 },
     mount: null, mounted: false,
+    vault: Array(30).fill(null), bankGold: 0,
   };
 }
 
@@ -1194,6 +1195,32 @@ function drawChests(ctx, cam) {
       if (Math.random() < 0.02) spawnParticles(c.x + (Math.random() - 0.5) * 16, c.y - 10, 1, '#ffe98a', 24, 0.8, -40);
     }
   }
+}
+
+// ---------------- Havenbrook Vault ----------------
+function drawVault(ctx, cam) {
+  if (!G.vaultPos) return;
+  const x = G.vaultPos.x - cam.x, y = G.vaultPos.y - cam.y;
+  if (x < -50 || y < -50 || x > G.W + 50 || y > G.H + 50) return;
+  const gl = Math.sin(G.time * 2.5) * 0.5 + 0.5;
+  drawShadow(ctx, x, y + 11, 17);
+  // warm glow
+  ctx.fillStyle = `rgba(201,162,39,${0.08 + gl * 0.08})`;
+  ctx.beginPath(); ctx.ellipse(x, y - 4, 24, 14, 0, 0, 7); ctx.fill();
+  // stone plinth
+  ctx.fillStyle = '#4a4a54'; ctx.beginPath(); ctx.roundRect(x - 17, y - 3, 34, 15, 3); ctx.fill();
+  ctx.fillStyle = '#3a3a44'; ctx.fillRect(x - 17, y - 3, 34, 3);
+  // gold-banded strongbox
+  ctx.fillStyle = '#6e5a34'; ctx.beginPath(); ctx.roundRect(x - 14, y - 15, 28, 13, 3); ctx.fill();
+  ctx.fillStyle = '#54401f'; ctx.beginPath(); ctx.roundRect(x - 14, y - 15, 28, 4, 3); ctx.fill();
+  ctx.fillStyle = '#c9a227'; ctx.fillRect(x - 14, y - 9, 28, 2); ctx.fillRect(x - 2, y - 15, 4, 13);
+  // lock
+  ctx.fillStyle = `rgba(255,225,120,${0.6 + gl * 0.4})`;
+  ctx.beginPath(); ctx.arc(x, y - 8, 2.6, 0, 7); ctx.fill();
+  if (Math.random() < 0.03) spawnParticles(x + (Math.random() - 0.5) * 22, y - 8, 1, '#ffe98a', 20, 0.7, -30);
+  // label
+  ctx.font = 'bold 9px Verdana'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#e0c866'; ctx.fillText('🏦 VAULT', x, y - 22);
 }
 
 // ---------------- Portals (crypt stairs) ----------------

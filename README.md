@@ -74,6 +74,8 @@ walks beside you, and talks in real chat (press **Enter** to type).
 - **PvP duels** — right-click a fellow player → ⚔️ Duel. A 3-2-1 countdown, then fight: dodge
   rolls grant i-frames, and the first player beaten below 10% HP yields (no death). Victories are
   announced realm-wide, count toward ranked score, and unlock the Duelist achievement at 3 wins.
+- **Havenbrook Vault** — a strongbox in the village plaza (`E` or click) opens 30 slots of
+  persistent storage plus gold banking, with drag-and-drop and click-to-transfer between bag and vault.
 - **Trading** — right-click a fellow player → 💱 Trade opens a two-way trade window showing
   **both characters face to face**: each side offers items and gold, any change resets acceptance,
   and the swap executes when both accept. **The townsfolk trade too** — they make an offer,

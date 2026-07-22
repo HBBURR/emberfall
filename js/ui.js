@@ -255,7 +255,7 @@ function refreshTracker() {
 function togglePanel(id) {
   const el = $(id);
   const wasHidden = el.classList.contains('hidden');
-  ['inventory', 'charsheet', 'questlog', 'board', 'worldMap'].forEach(p => $(p).classList.add('hidden'));
+  ['inventory', 'charsheet', 'questlog', 'board', 'worldMap', 'bankPanel'].forEach(p => $(p).classList.add('hidden'));
   if (wasHidden) {
     el.classList.remove('hidden');
     refreshPanels();
@@ -264,7 +264,67 @@ function togglePanel(id) {
   }
 }
 function anyPanelOpen() {
-  return ['inventory', 'charsheet', 'questlog', 'board', 'worldMap', 'tradePanel'].some(p => !$(p).classList.contains('hidden')) || !$('dialogue').classList.contains('hidden');
+  return ['inventory', 'charsheet', 'questlog', 'board', 'worldMap', 'bankPanel', 'tradePanel'].some(p => !$(p).classList.contains('hidden')) || !$('dialogue').classList.contains('hidden');
+}
+
+// ---------------- Bank / Vault ----------------
+function openBank() {
+  ['inventory', 'charsheet', 'questlog', 'board', 'worldMap'].forEach(p => $(p).classList.add('hidden'));
+  $('bankPanel').classList.remove('hidden');
+  refreshBank();
+}
+function bankOpen() { return !$('bankPanel').classList.contains('hidden'); }
+
+function renderBankGrid(el, arr, zone) {
+  el.innerHTML = '';
+  arr.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'invSlot';
+    if (s) {
+      const it = ITEMS[s.id];
+      if (it.rar > 0) d.classList.add('rb' + it.rar);
+      d.innerHTML = `${it.icon}<span class="iname rar${it.rar}">${it.name}</span>` + (s.qty > 1 ? `<span class="qty">x${s.qty}</span>` : '');
+      d.draggable = true;
+      d.addEventListener('dragstart', () => { G._drag = { type: 'bank', zone, idx: i }; });
+      d.onclick = () => quickBank(zone, i);   // click = jump to the other side
+      attachTooltip(d, s.id);
+    }
+    d.addEventListener('dragover', e => { e.preventDefault(); d.classList.add('dragOver'); });
+    d.addEventListener('dragleave', () => d.classList.remove('dragOver'));
+    d.addEventListener('drop', e => {
+      e.preventDefault(); d.classList.remove('dragOver');
+      if (G._drag && G._drag.type === 'bank') {
+        const src = G._drag.zone === 'bag' ? G.player.inv : G.player.vault;
+        const dst = zone === 'bag' ? G.player.inv : G.player.vault;
+        bankTransfer(src, G._drag.idx, dst, i);
+      }
+      G._drag = null;
+    });
+    el.appendChild(d);
+  });
+}
+function quickBank(zone, idx) {
+  const src = zone === 'bag' ? G.player.inv : G.player.vault;
+  const dst = zone === 'bag' ? G.player.vault : G.player.inv;
+  bankTransfer(src, idx, dst, null);
+}
+function refreshBank() {
+  if (!bankOpen()) return;
+  const p = G.player;
+  renderBankGrid($('bankBag'), p.inv, 'bag');
+  renderBankGrid($('bankVault'), p.vault, 'vault');
+  const line = $('bankGoldLine');
+  line.innerHTML = `🪙 On hand: <b style="color:#ffd700">${p.gold}</b> &nbsp;·&nbsp; 🏦 Vault: <b style="color:#ffd700">${p.bankGold || 0}</b><br>`;
+  const mk = (label, fn) => {
+    const b = document.createElement('button');
+    b.className = 'menuBtn';
+    b.style.cssText = 'width:auto;display:inline-block;padding:6px 16px;margin:8px 6px 0 0;font-size:13px;';
+    b.textContent = label;
+    b.onclick = fn;
+    return b;
+  };
+  line.appendChild(mk('Deposit all gold', () => { p.bankGold = (p.bankGold || 0) + p.gold; p.gold = 0; sfx('coin'); refreshBank(); }));
+  line.appendChild(mk('Withdraw all gold', () => { p.gold += (p.bankGold || 0); p.bankGold = 0; sfx('coin'); refreshBank(); }));
 }
 
 // ---------------- Leaderboard ----------------
@@ -777,6 +837,7 @@ function updateHint() {
     el.classList.remove('hidden');
     el.textContent = t.kind === 'node' ? `[E] Gather ${ITEMS[t.node.item].name}`
       : t.kind === 'chest' ? '[E] Open Treasure Chest'
+      : t.kind === 'vault' ? '[E] Open the Vault'
       : t.kind === 'portal' ? `[E] ${t.portal.label}${G.player.level < t.portal.minLevel ? ' (Lv ' + t.portal.minLevel + '+)' : ''}`
       : `[E] Talk to ${t.npc.name}`;
   } else if (canFish()) {

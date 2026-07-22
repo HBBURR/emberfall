@@ -309,6 +309,7 @@
   .tradeChar div { font-size:11px; color:#ffb84a; font-family:Verdana,sans-serif; margin-top:2px; }
   #tradeArrow { font-size:30px; color:#c9a227; text-shadow:0 0 14px rgba(201,162,39,.5); }
   .invSlot.dragOver { border-color:#c9a227; background:rgba(201,162,39,.16); }
+  .bankGrid { display:grid; gap:5px; margin-top:6px; }
   .tradeHead { color:#c9a227; font-size:12px; letter-spacing:1px; margin-bottom:6px; text-transform:uppercase; }
   .tradeGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; min-height:128px; margin-bottom:8px; }
   .tradeGold { font-size:13px; color:#ffd700; }
@@ -403,6 +404,22 @@
   <div id="boardMode"></div>
   <div id="boardList"></div>
   <div id="boardMe"></div>
+</div>
+
+<div id="bankPanel" class="panel hidden" style="width:640px;">
+  <span class="closeX" data-close="bankPanel">✕</span>
+  <h2>🏦 Havenbrook Vault</h2>
+  <div style="display:flex;gap:18px;">
+    <div style="flex:1">
+      <div class="tradeHead">Your bag <span style="color:#7d7358">(click or drag to store)</span></div>
+      <div id="bankBag" class="bankGrid" style="grid-template-columns:repeat(5,1fr);"></div>
+    </div>
+    <div style="flex:1.2">
+      <div class="tradeHead">Vault · 30 slots</div>
+      <div id="bankVault" class="bankGrid" style="grid-template-columns:repeat(6,1fr);"></div>
+    </div>
+  </div>
+  <div id="bankGoldLine" style="margin-top:12px;color:#c9a227;font-size:13px;"></div>
 </div>
 
 <div id="worldMap" class="panel hidden" style="width:620px;">

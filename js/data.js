@@ -23,7 +23,7 @@ const G = {
   quests: {},                    // id -> {state:'avail'|'active'|'done'|'turned', progress}
   shake: 0,
   zoneShown: '',
-  gatherNodes: [], chests: [], groundItems: [], portals: [],
+  gatherNodes: [], chests: [], groundItems: [], portals: [], vaultPos: null,
   bossDead: false,
   audio: null,
   paused: false,

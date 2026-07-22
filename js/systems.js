@@ -610,6 +610,10 @@ function nearestInteractable() {
     const d = dist(p.x, p.y, pt.x, pt.y);
     if (d < bd) { bd = d; best = { kind: 'portal', portal: pt }; }
   }
+  if (G.vaultPos) {
+    const d = dist(p.x, p.y, G.vaultPos.x, G.vaultPos.y);
+    if (d < bd) { bd = d; best = { kind: 'vault' }; }
+  }
   return best;
 }
 
@@ -643,7 +647,29 @@ function interact() {
   if (t.kind === 'node') { gatherNode(t.node); return; }
   if (t.kind === 'chest') { openChest(t.chest); return; }
   if (t.kind === 'portal') { usePortal(t.portal); return; }
+  if (t.kind === 'vault') { openBank(); return; }
   openDialogue(t.npc);
+}
+
+// move an item between two fixed-slot arrays (bag/vault), merging like stacks
+function bankTransfer(fromArr, fromIdx, toArr, toIdx) {
+  const a = fromArr[fromIdx];
+  if (!a) return;
+  const stackable = ['use', 'quest', 'junk'].includes(ITEMS[a.id].slot);
+  if (toIdx === null || toIdx === undefined) {
+    if (stackable) {
+      const ex = toArr.find(s => s && s.id === a.id);
+      if (ex) { ex.qty += a.qty; fromArr[fromIdx] = null; refreshBank(); refreshPanels(); return; }
+    }
+    const e = toArr.findIndex(s => !s);
+    if (e < 0) { chat('sys', 'No room over there.'); return; }
+    toArr[e] = a; fromArr[fromIdx] = null;
+  } else {
+    const b = toArr[toIdx];
+    if (b && b.id === a.id && stackable) { b.qty += a.qty; fromArr[fromIdx] = null; }
+    else { toArr[toIdx] = a; fromArr[fromIdx] = b || null; }
+  }
+  refreshBank(); refreshPanels();
 }
 
 // ---------------- Mouse targeting ----------------
@@ -696,6 +722,10 @@ function entityAtScreen(sx, sy) {
     consider({ kind: 'portal', portal: pt, x: pt.x, y: pt.y }, pt.x, pt.y,
       Math.abs(wx - pt.x) < 20 && Math.abs(wy - pt.y) < 18);
   }
+  if (G.vaultPos && bd >= 0) {
+    consider({ kind: 'vault', x: G.vaultPos.x, y: G.vaultPos.y }, G.vaultPos.x, G.vaultPos.y,
+      Math.abs(wx - G.vaultPos.x) < 20 && Math.abs(wy - G.vaultPos.y) < 20);
+  }
   return best;
 }
 
@@ -708,6 +738,7 @@ function tryClickInteract(hit, cx, cy) {
   if (hit.kind === 'chest') { d < CLICK_RANGE ? openChest(hit.chest) : tooFar(); return true; }
   if (hit.kind === 'node') { d < CLICK_RANGE ? gatherNode(hit.node) : tooFar(); return true; }
   if (hit.kind === 'portal') { d < CLICK_RANGE ? usePortal(hit.portal) : tooFar(); return true; }
+  if (hit.kind === 'vault') { d < CLICK_RANGE ? openBank() : tooFar(); return true; }
   // people (players/villagers): left-click passes through — use RIGHT-click for their menu
   return false;
 }
@@ -821,6 +852,7 @@ function saveGame() {
     inv: p.inv, equip: p.equip, kills: p.kills, playTime: p.playTime,
     ach: p.ach, counters: p.counters,
     skillOrder: p.skillOrder, potionBinds: p.potionBinds, mount: p.mount,
+    vault: p.vault, bankGold: p.bankGold,
     quests: G.quests, bossDead: G.bossDead, dayTime: G.dayTime,
     gatherTaken: G.gatherNodes.map(g => g.taken > 0),
     chestsOpen: G.chests.map(c => c.open),
@@ -867,6 +899,12 @@ function applySave(data) {
     skillOrder: Array.isArray(data.skillOrder) && data.skillOrder.length === 4 ? data.skillOrder : [0, 1, 2, 3],
     potionBinds: Array.isArray(data.potionBinds) && data.potionBinds.length === 2 ? data.potionBinds : ['hp_potion', 'mp_potion'],
     mount: data.mount && ITEMS[data.mount] ? data.mount : null,
+    vault: (() => {
+      const v = Array(30).fill(null);
+      if (Array.isArray(data.vault)) data.vault.forEach((s, i) => { if (i < 30 && s && ITEMS[s.id]) v[i] = s; });
+      return v;
+    })(),
+    bankGold: data.bankGold | 0,
   });
   G.player = p;
   G.quests = data.quests || {};
