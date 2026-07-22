@@ -653,8 +653,22 @@ function attachTooltip(el, itemId, isEquipped) {
 
 // ---------------- Target frame ----------------
 function updateTargetFrame() {
-  const t = G.target;
   const el = $('targetFrame');
+  // an active duel owns the frame: opponent name + live HP
+  if (Duel.state !== 'none') {
+    const r = Net.remotes[Duel.peerId];
+    if (r) {
+      el.classList.remove('hidden');
+      const nm = $('tfName');
+      nm.textContent = `⚔ ${r.name} · Lv ${r.level}`;
+      nm.style.color = '#ff8a6a';
+      const frac = clamp((r.hpf === undefined ? 100 : r.hpf) / 100, 0, 1);
+      $('tfFill').style.transform = `scaleX(${frac})`;
+      $('tfText').textContent = Duel.state === 'counting' ? 'READY...' : Math.round(frac * 100) + '%';
+      return;
+    }
+  }
+  const t = G.target;
   if (!t || t.dead || dist(G.player.x, G.player.y, t.x, t.y) > 700) {
     G.target = null;
     el.classList.add('hidden');

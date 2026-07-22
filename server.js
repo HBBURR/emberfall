@@ -300,7 +300,7 @@ function handleMessage(client, m) {
   }
 }
 
-const RELAY_TYPES = new Set(['pdmg', 'ekill', 'ehit', 'eproj', 'esnap', 'esummon', 'gift',
+const RELAY_TYPES = new Set(['pdmg', 'ekill', 'ehit', 'eproj', 'esnap', 'esummon', 'gift', 'pfx',
   'tradereq', 'tradeacc', 'tradedec', 'tradeoffer', 'tradeok', 'tradecancel',
   'duelreq', 'duelacc', 'dueldec', 'duelhit', 'duelyield', 'duelcancel',
   'partyinv', 'partyacc', 'partydec', 'partysync', 'partyleave']);

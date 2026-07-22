@@ -256,18 +256,25 @@ function useSkill(slot) {
       if (Math.abs(da) < sk.arc / 2) dealToEnemy(e, sk.mult);
     }
     Duel.tryMelee(sk, aim);
+    Net.sendFx({ kind: 'swing' });
   } else if (sk.type === 'proj') {
     sfx('cast');
-    G.projectiles.push({ x: p.x, y: p.y - 10, vx: Math.cos(aim) * sk.speed, vy: Math.sin(aim) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 300) / sk.speed, kind: p.cls === 'mage' ? 'bolt' : 'arrow' });
+    const pr = { x: p.x, y: p.y - 10, vx: Math.cos(aim) * sk.speed, vy: Math.sin(aim) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 300) / sk.speed, kind: p.cls === 'mage' ? 'bolt' : 'arrow' };
+    G.projectiles.push(pr);
+    Net.sendFx({ kind: 'proj', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), pkind: pr.kind, ttl: pr.ttl });
   } else if (sk.type === 'multiproj') {
     sfx('cast');
     for (let i = 0; i < sk.count; i++) {
       const a = aim + (i - (sk.count - 1) / 2) * (sk.spread / (sk.count - 1) * 2);
-      G.projectiles.push({ x: p.x, y: p.y - 10, vx: Math.cos(a) * sk.speed, vy: Math.sin(a) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 250) / sk.speed, kind: 'arrow' });
+      const pr = { x: p.x, y: p.y - 10, vx: Math.cos(a) * sk.speed, vy: Math.sin(a) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 250) / sk.speed, kind: 'arrow' };
+      G.projectiles.push(pr);
+      Net.sendFx({ kind: 'proj', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), pkind: 'arrow', ttl: pr.ttl });
     }
   } else if (sk.type === 'pierce') {
     sfx('cast');
-    G.projectiles.push({ x: p.x, y: p.y - 10, vx: Math.cos(aim) * sk.speed, vy: Math.sin(aim) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 420) / sk.speed, kind: 'pierce', pierce: true, hitSet: new Set() });
+    const pr = { x: p.x, y: p.y - 10, vx: Math.cos(aim) * sk.speed, vy: Math.sin(aim) * sk.speed, mult: sk.mult, from: 'player', ttl: (sk.range || 420) / sk.speed, kind: 'pierce', pierce: true, hitSet: new Set() };
+    G.projectiles.push(pr);
+    Net.sendFx({ kind: 'proj', x: Math.round(pr.x), y: Math.round(pr.y), vx: Math.round(pr.vx), vy: Math.round(pr.vy), pkind: 'pierce', ttl: pr.ttl });
   } else if (sk.type === 'nova') {
     sfx('cast');
     G.shake = Math.max(G.shake, 0.3);
@@ -280,6 +287,7 @@ function useSkill(slot) {
         dealToEnemy(e, sk.mult, { stun: sk.stun, slow: sk.slow });
     }
     Duel.tryNova(sk);
+    Net.sendFx({ kind: 'nova', r: sk.range, col });
   } else if (sk.type === 'targetaoe') {
     sfx('cast');
     const wm = { x: G.mouse.x + G.camera.x, y: G.mouse.y + G.camera.y };
@@ -289,6 +297,7 @@ function useSkill(slot) {
     // delayed strike
     G.pendingAoes = G.pendingAoes || [];
     G.pendingAoes.push({ x: tx, y: ty, r: sk.range, mult: sk.mult, t: 0.55, kind: skillId });
+    Net.sendFx({ kind: 'aoe', x: Math.round(tx), y: Math.round(ty), r: sk.range, pkind: skillId });
   } else if (sk.type === 'dash') {
     sfx('swing');
     p.dashT = 0.22; p.dashAng = aim;
@@ -314,11 +323,13 @@ function updatePendingAoes(dt) {
       spawnParticles(a.x, a.y, 46, col, 280, 0.6);
       ringEffect(a.x, a.y, a.r, col);
       sfx('crit');
-      for (const e of G.enemies) {
-        if (!e.dead && dist(a.x, a.y, e.x, e.y) < a.r + (e.scale - 1) * 20) dealToEnemy(e, a.mult);
+      if (!a.cosmetic) {
+        for (const e of G.enemies) {
+          if (!e.dead && dist(a.x, a.y, e.x, e.y) < a.r + (e.scale - 1) * 20) dealToEnemy(e, a.mult);
+        }
+        const dr = Duel.peer();
+        if (dr && dist(a.x, a.y, dr.x, dr.y) < a.r + 14) Duel.hitPeer(a.mult);
       }
-      const dr = Duel.peer();
-      if (dr && dist(a.x, a.y, dr.x, dr.y) < a.r + 14) Duel.hitPeer(a.mult);
     }
   }
 }
@@ -331,7 +342,9 @@ function updateProjectiles(dt) {
     pr.ttl -= dt;
     let kill = pr.ttl <= 0;
     if (World.blocked(pr.x, pr.y) && !pr.pierce) kill = true;
-    if (pr.from === 'player') {
+    if (pr.from === 'fx') {
+      // another player's attack — purely visual, damage arrives via its own message
+    } else if (pr.from === 'player') {
       const dr = Duel.peer();
       if (dr && !pr.duelHit && dist(pr.x, pr.y, dr.x, dr.y) < 17) {
         pr.duelHit = true;

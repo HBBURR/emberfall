@@ -115,7 +115,7 @@ const Net = {
       chat('sys', `⚔ ${m.name} has entered Emberfall!`);
     } else if (m.t === 'state') {
       const r = this.remotes[m.id];
-      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; r.av = m.av; r.hv = m.hv; r.bv = m.bv; r.mt = m.mt; }
+      if (r) { r.tx = m.x; r.ty = m.y; r.facing = m.facing; r.moving = m.moving; r.level = m.level; r.wt = m.wt; r.hpf = m.hpf; r.av = m.av; r.hv = m.hv; r.bv = m.bv; r.mt = m.mt; r.rl = m.rl; }
     } else if (m.t && m.t.startsWith('trade')) {
       Trade.handle(m);
     } else if (m.t && m.t.startsWith('duel')) {
@@ -128,6 +128,26 @@ const Net = {
         const sender = this.remotes[m.from];
         chat('sys', `🎁 ${sender ? sender.name : 'A friend'} sent you ${itemLabel(m.item)}!`);
         sfx('quest');
+      }
+    } else if (m.t === 'pfx') {
+      const r = this.remotes[m.from];
+      if (!r) return;
+      const near = dist(G.player.x, G.player.y, r.x, r.y) < 900;
+      if (m.kind === 'swing') {
+        r.attackAnim = 1;
+        if (near) sfx('swing');
+      } else if (m.kind === 'proj') {
+        G.projectiles.push({ x: m.x, y: m.y, vx: m.vx, vy: m.vy, kind: m.pkind || 'arrow', ttl: m.ttl || 0.6, from: 'fx' });
+        if (near) sfx('cast');
+      } else if (m.kind === 'nova') {
+        ringEffect(r.x, r.y, m.r || 110, m.col || '#8ad4ff');
+        spawnParticles(r.x, r.y, 26, m.col || '#8ad4ff', 220, 0.5);
+        if (near) sfx('cast');
+      } else if (m.kind === 'aoe') {
+        G.pendingAoes = G.pendingAoes || [];
+        G.pendingAoes.push({ x: m.x, y: m.y, r: m.r || 90, mult: 0, t: 0.55, kind: m.pkind, cosmetic: true });
+      } else if (m.kind === 'dodge') {
+        floater(r.x, r.y - 28, 'DODGED', '#8fd4ff');
       }
     } else if (m.t === 'renamed') {
       // we joined wearing someone's claimed name — the realm renamed us
@@ -159,7 +179,7 @@ const Net = {
       this.sendT = 0.1;   // 10 updates/s
       const p = G.player;
       const gv = gearVis(p.equip);
-      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100), av: gv.a === null ? -1 : gv.a, hv: gv.h === null ? -1 : gv.h, bv: gv.b === null ? -1 : gv.b, mt: (p.mounted && p.mount) ? ITEMS[p.mount].mvt : -1 });
+      this.send({ t: 'state', x: Math.round(p.x), y: Math.round(p.y), facing: Math.cos(p.facing) < 0 ? -1 : 1, moving: p.moving, level: p.level, wt: playerWeaponTier(p), hpf: Math.round(clamp(p.hp / pStat(p).maxHp, 0, 1) * 100), av: gv.a === null ? -1 : gv.a, hv: gv.h === null ? -1 : gv.h, bv: gv.b === null ? -1 : gv.b, mt: (p.mounted && p.mount) ? ITEMS[p.mount].mvt : -1, rl: p.rollT > 0 ? 1 : 0 });
     }
     // ranked score heartbeat (drives the realm leaderboard)
     this.scoreT -= dt;
@@ -182,11 +202,19 @@ const Net = {
       if (dist(r.x, r.y, r.tx, r.ty) > 300) { r.x = r.tx; r.y = r.ty; }   // teleport snap
       else { r.x = lerp(r.x, r.tx, Math.min(1, dt * 12)); r.y = lerp(r.y, r.ty, Math.min(1, dt * 12)); }
       if (r.moving) r.walkT += dt * 9;
+      if (r.attackAnim > 0) r.attackAnim = Math.max(0, r.attackAnim - dt * 4);
+      if (r.rl && Math.random() < 0.5) spawnParticles(r.x, r.y + 8, 1, '#cfc8b0', 50, 0.3);   // dodge-roll dust
     }
   },
 
   send(o) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(o)); },
   sendChat(text) { this.send({ t: 'chat', text }); },
+  // cosmetic combat effects — so other players SEE your attacks (damage flows separately)
+  sendFx(fx) {
+    if (!this.connected || !Object.keys(this.remotes).length) return;
+    fx.t = 'pfx';
+    this.send(fx);
+  },
   count() { return (this.connected ? 1 : 0) + Object.keys(this.remotes).length; },
 };
 
@@ -559,6 +587,7 @@ const Duel = {
     if (p.dead) return;
     if (p.rollT > 0 || p.dashT > 0) {   // dodged!
       floater(p.x, p.y - 26, 'DODGED', '#8fd4ff');
+      Net.sendFx({ kind: 'dodge' });    // let the attacker (and spectators) see it too
       return;
     }
     const st = pStat(p);
@@ -601,5 +630,17 @@ function drawRemote(ctx, r, cam) {
     weapon: r.cls === 'warrior' ? 'sword' : r.cls === 'mage' ? 'staff' : 'bow',
     wtier: r.wt === undefined ? 0 : r.wt,
     gear: { a: r.av >= 0 ? r.av : null, h: r.hv >= 0 ? r.hv : null, b: r.bv >= 0 ? r.bv : null },
+    attackAnim: r.attackAnim || 0,
   });
+  // duel opponent: overhead health bar so you can read the fight
+  if (Duel.state !== 'none' && Duel.peerId === r.id) {
+    const frac = clamp((r.hpf === undefined ? 100 : r.hpf) / 100, 0, 1);
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.fillRect(x - 21, y - 56, 42, 7);
+    ctx.fillStyle = frac > 0.35 ? '#e15b5b' : '#ff8a3a';
+    ctx.fillRect(x - 20, y - 55, 40 * frac, 5);
+    ctx.strokeStyle = 'rgba(255,255,255,.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - 21, y - 56, 42, 7);
+  }
 }
